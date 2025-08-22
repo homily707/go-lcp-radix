@@ -1,5 +1,11 @@
 package lradix
 
+import (
+	"fmt"
+	"sort"
+	"strings"
+)
+
 type Node[T any] struct {
 	Text     []byte
 	Val      T
@@ -60,7 +66,9 @@ func (t *Tree[T]) Insert(str []byte, val T) {
 			// partial match, split node
 			// use this insert val as common node val, because it is most recent
 			commonNode := NewNode(next.Text[:sharedPrefix], val)
-			commonNode.AddChild(NewNode(next.Text[sharedPrefix:], next.Val))
+			splitted := NewNode(next.Text[sharedPrefix:], next.Val)
+			splitted.Children = next.Children
+			commonNode.AddChild(splitted)
 			commonNode.AddChild(NewNode(str[index+sharedPrefix:], val))
 			cur.AddChild(commonNode)
 			return
@@ -77,6 +85,7 @@ func (t *Tree[T]) LongestCommonPrefixMatch(str []byte) T {
 	for index < len(str) {
 		cur := mark
 		char := str[index]
+		// no match，stop at current node
 		next, ok := cur.GetChild(char)
 		if !ok {
 			break
@@ -87,10 +96,52 @@ func (t *Tree[T]) LongestCommonPrefixMatch(str []byte) T {
 			// partial match, stop
 			break
 		}
-		// complete match, move to next node
+		// full match, move to next node
 		index += sharedPrefix
 	}
 	return mark.Val
+}
+
+func (t *Tree[T]) String() string {
+	var result strings.Builder
+	t.printNode(t.Root, "", &result)
+	return result.String()
+}
+
+func (t *Tree[T]) printNode(node *Node[T], prefix string, result *strings.Builder) {
+	if node == nil {
+		return
+	}
+
+	var displayText string
+	if len(node.Text) == 0 {
+		displayText = "ROOT"
+	} else {
+		displayText = string(node.Text)
+	}
+
+	result.WriteString(prefix)
+	result.WriteString("└──")
+	result.WriteString(displayText)
+
+	result.WriteString(" (val: ")
+	result.WriteString(fmt.Sprintf("%v", node.Val))
+	result.WriteString(")")
+	result.WriteString("\n")
+
+	sortedChildren := make([]byte, 0, len(node.Children))
+	for char := range node.Children {
+		sortedChildren = append(sortedChildren, char)
+	}
+	sort.Slice(sortedChildren, func(i, j int) bool {
+		return sortedChildren[i] < sortedChildren[j]
+	})
+
+	newPrefix := prefix + "   "
+	for _, char := range sortedChildren {
+		child := node.Children[char]
+		t.printNode(child, newPrefix, result)
+	}
 }
 
 func longestPrefix(a, b []byte) int {

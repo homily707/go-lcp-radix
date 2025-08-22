@@ -367,3 +367,175 @@ func TestInsertAfterLCP(t *testing.T) {
 		}
 	}
 }
+
+func TestRemoveNode(t *testing.T) {
+	tree := NewTree[int]()
+
+	// Test 1: Remove leaf node
+	node1 := tree.Insert([]byte("hello"), 1)
+	tree.Insert([]byte("world"), 2)
+
+	// Verify initial state
+	if len(tree.Root.Children) != 2 {
+		t.Errorf("Expected 2 children, got %d", len(tree.Root.Children))
+	}
+
+	// Remove one node
+	tree.RemoveNode(node1)
+	if len(tree.Root.Children) != 1 {
+		t.Errorf("Expected 1 child after removal, got %d", len(tree.Root.Children))
+	}
+
+	// Verify the remaining node still works
+	result := tree.LongestCommonPrefixMatch([]byte("world"))
+	if result != 2 {
+		t.Errorf("Expected 2, got %d", result)
+	}
+	result = tree.LongestCommonPrefixMatch([]byte("hello"))
+	if result != 0 {
+		t.Errorf("Expected 0, got %d", result)
+	}
+}
+
+func TestRemoveNodeWithParentCleanup(t *testing.T) {
+	tree := NewTree[int]()
+
+	// Insert strings that create parent-child relationships
+	tree.Insert([]byte("hello"), 1)
+	node2 := tree.Insert([]byte("help"), 2)
+	node3 := tree.Insert([]byte("helper"), 3)
+
+	// Verify initial structure
+	if len(tree.Root.Children) != 1 {
+		t.Errorf("Expected 1 child at root, got %d", len(tree.Root.Children))
+	}
+
+	// fmt.Println(tree.String())
+	// Remove the leaf node ("helper")
+	tree.RemoveNode(node3)
+	// fmt.Println(tree.String())
+	// Verify parent is also removed
+	result := tree.LongestCommonPrefixMatch([]byte("help"))
+	if result != 1 {
+		t.Errorf("Expected 1, got %d", result)
+	}
+
+	// Remove the middle node ("help"), which should has no effect
+	tree.RemoveNode(node2)
+	// fmt.Println(tree.String())
+	// Verify only "hello" remains
+	result = tree.LongestCommonPrefixMatch([]byte("hello"))
+	if result != 1 {
+		t.Errorf("Expected 1, got %d", result)
+	}
+
+	// Verify no children remain at root
+	if len(tree.Root.Children) != 1 {
+		t.Errorf("Expected 1 child at root, got %d", len(tree.Root.Children))
+	}
+}
+
+func TestRemoveRootNode(t *testing.T) {
+	tree := NewTree[int]()
+
+	// Try to remove root node (should not panic)
+	tree.RemoveNode(tree.Root)
+
+	// Root should still exist
+	if tree.Root == nil {
+		t.Error("Root should not be nil after attempted removal")
+	}
+}
+
+func TestRemoveNonexistentNode(t *testing.T) {
+	tree := NewTree[int]()
+
+	// Create a node not in the tree
+	externalNode := NewNode([]byte("external"), 42)
+
+	// Try to remove it (should not panic)
+	tree.RemoveNode(externalNode)
+
+	// Tree should remain unchanged
+	if len(tree.Root.Children) != 0 {
+		t.Errorf("Expected 0 children, got %d", len(tree.Root.Children))
+	}
+}
+
+func TestRemoveNodeComplexTree(t *testing.T) {
+	tree := NewTree[int]()
+
+	// Build a complex tree structure
+	tree.Insert([]byte("romanus"), 1)
+	node2 := tree.Insert([]byte("romane"), 2)
+	node3 := tree.Insert([]byte("romulus"), 3)
+	tree.Insert([]byte("rubens"), 4)
+	tree.Insert([]byte("ruber"), 5)
+	tree.Insert([]byte("rubicon"), 6)
+	node7 := tree.Insert([]byte("rubicundus"), 7)
+
+	// fmt.Println(tree.String())
+	// Remove nodes and verify tree integrity
+	tree.RemoveNode(node2)
+	tree.RemoveNode(node3)
+	tree.RemoveNode(node7)
+	// fmt.Println(tree.String())
+
+	// Verify remaining nodes still work
+	testCases := []struct {
+		input    string
+		expected int
+	}{
+		{"romanus", 1},
+		{"rubens", 4},
+		{"ruber", 5},
+		{"rubicon", 6},
+		{"roma", 1},       // Should match romanus
+		{"rub", 6},        // Should match rubicon
+		{"rubicundus", 6}, // Should match rubicon
+		{"rube", 5},       // Should match ruber
+	}
+
+	for _, tc := range testCases {
+		result := tree.LongestCommonPrefixMatch([]byte(tc.input))
+		if result != tc.expected {
+			t.Errorf("LCP(%q) = %d, expected %d", tc.input, result, tc.expected)
+		}
+	}
+}
+
+func TestRemoveNodeLastChildCleanup(t *testing.T) {
+	tree := NewTree[int]()
+
+	// Insert strings that create a chain
+	node1 := tree.Insert([]byte("a"), 1)
+	node2 := tree.Insert([]byte("ab"), 2)
+	node3 := tree.Insert([]byte("abc"), 3)
+
+	// Remove the leaf node
+	tree.RemoveNode(node3)
+
+	// Verify parent still exists
+	result := tree.LongestCommonPrefixMatch([]byte("ab"))
+	if result != 2 {
+		t.Errorf("Expected 2, got %d", result)
+	}
+
+	// Remove the middle node
+	tree.RemoveNode(node2)
+
+	// Verify only "a" remains
+	result = tree.LongestCommonPrefixMatch([]byte("a"))
+	if result != 1 {
+		t.Errorf("Expected 1, got %d", result)
+	}
+
+	// Remove the last node
+	tree.RemoveNode(node1)
+
+	// Verify tree is empty
+	result = tree.LongestCommonPrefixMatch([]byte("a"))
+	if result != 0 {
+		t.Errorf("Expected 0, got %d", result)
+	}
+}

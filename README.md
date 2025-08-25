@@ -1,5 +1,9 @@
 # go-lcp-radix
 
+[![codecov](https://codecov.io/gh/homily707/go-lcp-radix/branch/master/graph/badge.svg)](https://codecov.io/gh/homily707/go-lcp-radix)
+[![Go Report Card](https://goreportcard.com/badge/github.com/homily707/go-lcp-radix)](https://goreportcard.com/report/github.com/homily707/go-lcp-radix)
+[![Go Reference](https://pkg.go.dev/badge/github.com/homily707/go-lcp-radix?status.svg)](https://pkg.go.dev/github.com/homily707/go-lcp-radix?tab=doc)
+
 A high-performance radix tree (prefix tree) implementation in Go with efficient longest common prefix matching.
 
 ## Features

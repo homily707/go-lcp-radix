@@ -1,8 +1,9 @@
 package lradix
 
 import (
-	"fmt"
 	"testing"
+
+	"github.com/samber/lo"
 )
 
 func TestInsert(t *testing.T) {
@@ -31,20 +32,19 @@ func TestInsert(t *testing.T) {
 	if len(tree.Root.Children) == 0 {
 		t.Error("Root should have children after inserting multiple strings")
 	}
-	fmt.Println(tree.String())
 }
 
 func TestLongestCommonPrefixMatchEmptyTree(t *testing.T) {
 	tree := NewTree[int]()
 	result := tree.LongestCommonPrefixMatch([]byte("test"))
-	if result != 0 {
-		t.Errorf("Expected zero value from empty tree, got %v", result)
+	if result != nil {
+		t.Errorf("Expected nil from empty tree, got %v", *result)
 	}
 	// Insert empty string should not affect the result
 	tree.Insert([]byte(""), 42)
 	result = tree.LongestCommonPrefixMatch([]byte("whatever"))
-	if result != 0 {
-		t.Errorf("Expected zero value from empty tree, got %v", result)
+	if result != nil {
+		t.Errorf("Expected nil from empty tree, got %v", *result)
 	}
 }
 
@@ -86,8 +86,10 @@ func TestComplexPrefixSplitting(t *testing.T) {
 
 	for _, tc := range testCases {
 		result := tree.LongestCommonPrefixMatch([]byte(tc.input))
-		if result != tc.expected {
-			t.Errorf("LCP(%q) = %d, expected %d", tc.input, result, tc.expected)
+		if result == nil && tc.expected != 0 {
+			t.Errorf("LCP(%q) = nil, expected %d", tc.input, tc.expected)
+		} else if result != nil && *result != tc.expected {
+			t.Errorf("LCP(%q) = %v, expected %d", tc.input, *result, tc.expected)
 		}
 	}
 }
@@ -97,8 +99,8 @@ func TestNestedPrefixSplitting(t *testing.T) {
 
 	// Create deeply nested prefix scenarios
 	tree.Insert([]byte("a"), 1)
-	tree.Insert([]byte("ab"), 2)
 	tree.Insert([]byte("abc"), 3)
+	tree.Insert([]byte("ab"), 2)
 	tree.Insert([]byte("abcd"), 4)
 	tree.Insert([]byte("abcde"), 5)
 	tree.Insert([]byte("abcdef"), 6)
@@ -125,8 +127,10 @@ func TestNestedPrefixSplitting(t *testing.T) {
 
 	for _, tc := range testCases {
 		result := tree.LongestCommonPrefixMatch([]byte(tc.input))
-		if result != tc.expected {
-			t.Errorf("LCP(%q) = %d, expected %d", tc.input, result, tc.expected)
+		if result == nil && tc.expected != 0 {
+			t.Errorf("LCP(%q) = nil, expected %d", tc.input, tc.expected)
+		} else if result != nil && *result != tc.expected {
+			t.Errorf("LCP(%q) = %v, expected %d", tc.input, *result, tc.expected)
 		}
 	}
 }
@@ -164,8 +168,10 @@ func TestMultipleBranchesAtSameLevel(t *testing.T) {
 
 	for _, tc := range testCases {
 		result := tree.LongestCommonPrefixMatch([]byte(tc.input))
-		if result != tc.expected {
-			t.Errorf("LCP(%q) = %d, expected %d", tc.input, result, tc.expected)
+		if result == nil && tc.expected != 0 {
+			t.Errorf("LCP(%q) = nil, expected %d", tc.input, tc.expected)
+		} else if result != nil && *result != tc.expected {
+			t.Errorf("LCP(%q) = %v, expected %d", tc.input, *result, tc.expected)
 		}
 	}
 }
@@ -204,8 +210,10 @@ func TestOverlappingPrefixes(t *testing.T) {
 
 	for _, tc := range testCases {
 		result := tree.LongestCommonPrefixMatch([]byte(tc.input))
-		if result != tc.expected {
-			t.Errorf("LCP(%q) = %d, expected %d", tc.input, result, tc.expected)
+		if result == nil && tc.expected != 0 {
+			t.Errorf("LCP(%q) = nil, expected %d", tc.input, tc.expected)
+		} else if result != nil && *result != tc.expected {
+			t.Errorf("LCP(%q) = %v, expected %d", tc.input, *result, tc.expected)
 		}
 	}
 }
@@ -243,8 +251,10 @@ func TestEmptyAndSingleCharacterStrings(t *testing.T) {
 
 	for _, tc := range testCases {
 		result := tree.LongestCommonPrefixMatch([]byte(tc.input))
-		if result != tc.expected {
-			t.Errorf("LCP(%q) = %d, expected %d", tc.input, result, tc.expected)
+		if result == nil && tc.expected != 0 {
+			t.Errorf("LCP(%q) = nil, expected %d", tc.input, tc.expected)
+		} else if result != nil && *result != tc.expected {
+			t.Errorf("LCP(%q) = %v, expected %d", tc.input, *result, tc.expected)
 		}
 	}
 }
@@ -281,8 +291,10 @@ func TestVeryLongStrings(t *testing.T) {
 
 	for _, tc := range testCases {
 		result := tree.LongestCommonPrefixMatch([]byte(tc.input))
-		if result != tc.expected {
-			t.Errorf("LCP(%q) = %d, expected %d", tc.input, result, tc.expected)
+		if result == nil && tc.expected != 0 {
+			t.Errorf("LCP(%q) = nil, expected %d", tc.input, tc.expected)
+		} else if result != nil && *result != tc.expected {
+			t.Errorf("LCP(%q) = %v, expected %d", tc.input, *result, tc.expected)
 		}
 	}
 }
@@ -319,8 +331,10 @@ func TestSpecialCharactersAndUnicode(t *testing.T) {
 
 	for _, tc := range testCases {
 		result := tree.LongestCommonPrefixMatch([]byte(tc.input))
-		if result != tc.expected {
-			t.Errorf("LCP(%q) = %d, expected %d", tc.input, result, tc.expected)
+		if result == nil && tc.expected != 0 {
+			t.Errorf("LCP(%q) = nil, expected %d", tc.input, tc.expected)
+		} else if result != nil && *result != tc.expected {
+			t.Errorf("LCP(%q) = %v, expected %d", tc.input, *result, tc.expected)
 		}
 	}
 }
@@ -334,8 +348,8 @@ func TestInsertAfterLCP(t *testing.T) {
 
 	// Test LCP before adding more
 	result := tree.LongestCommonPrefixMatch([]byte("test"))
-	if result != 1 {
-		t.Errorf("LCP(test) = %d, expected 1", result)
+	if result == nil || *result != 1 {
+		t.Errorf("LCP(test) = %v, expected 1", result)
 	}
 
 	// Add more strings that should split existing nodes
@@ -362,8 +376,10 @@ func TestInsertAfterLCP(t *testing.T) {
 
 	for _, tc := range testCases {
 		result := tree.LongestCommonPrefixMatch([]byte(tc.input))
-		if result != tc.expected {
-			t.Errorf("LCP(%q) = %d, expected %d", tc.input, result, tc.expected)
+		if result == nil && tc.expected != 0 {
+			t.Errorf("LCP(%q) = nil, expected %d", tc.input, tc.expected)
+		} else if result != nil && *result != tc.expected {
+			t.Errorf("LCP(%q) = %v, expected %d", tc.input, *result, tc.expected)
 		}
 	}
 }
@@ -388,12 +404,12 @@ func TestRemoveNode(t *testing.T) {
 
 	// Verify the remaining node still works
 	result := tree.LongestCommonPrefixMatch([]byte("world"))
-	if result != 2 {
-		t.Errorf("Expected 2, got %d", result)
+	if result == nil || *result != 2 {
+		t.Errorf("Expected 2, got %v", result)
 	}
 	result = tree.LongestCommonPrefixMatch([]byte("hello"))
-	if result != 0 {
-		t.Errorf("Expected 0, got %d", result)
+	if result != nil {
+		t.Errorf("Expected nil, got %v", *result)
 	}
 }
 
@@ -410,14 +426,13 @@ func TestRemoveNodeWithParentCleanup(t *testing.T) {
 		t.Errorf("Expected 1 child at root, got %d", len(tree.Root.Children))
 	}
 
-	// fmt.Println(tree.String())
+	//fmt.Println(tree.String())
 	// Remove the leaf node ("helper")
 	tree.RemoveNode(node3)
 	// fmt.Println(tree.String())
-	// Verify parent is also removed
 	result := tree.LongestCommonPrefixMatch([]byte("help"))
-	if result != 1 {
-		t.Errorf("Expected 1, got %d", result)
+	if result == nil || *result != 2 {
+		t.Errorf("Expected 2, got %v", result)
 	}
 
 	// Remove the middle node ("help"), which should has no effect
@@ -425,8 +440,8 @@ func TestRemoveNodeWithParentCleanup(t *testing.T) {
 	// fmt.Println(tree.String())
 	// Verify only "hello" remains
 	result = tree.LongestCommonPrefixMatch([]byte("hello"))
-	if result != 1 {
-		t.Errorf("Expected 1, got %d", result)
+	if result == nil || *result != 1 {
+		t.Errorf("Expected 1, got %v", result)
 	}
 
 	// Verify no children remain at root
@@ -451,7 +466,7 @@ func TestRemoveNonexistentNode(t *testing.T) {
 	tree := NewTree[int]()
 
 	// Create a node not in the tree
-	externalNode := NewNode([]byte("external"), 42)
+	externalNode := NewNode([]byte("external"), lo.ToPtr(42))
 
 	// Try to remove it (should not panic)
 	tree.RemoveNode(externalNode)
@@ -498,8 +513,10 @@ func TestRemoveNodeComplexTree(t *testing.T) {
 
 	for _, tc := range testCases {
 		result := tree.LongestCommonPrefixMatch([]byte(tc.input))
-		if result != tc.expected {
-			t.Errorf("LCP(%q) = %d, expected %d", tc.input, result, tc.expected)
+		if result == nil && tc.expected != 0 {
+			t.Errorf("LCP(%q) = nil, expected %d", tc.input, tc.expected)
+		} else if result != nil && *result != tc.expected {
+			t.Errorf("LCP(%q) = %v, expected %d", tc.input, *result, tc.expected)
 		}
 	}
 }
@@ -517,8 +534,8 @@ func TestRemoveNodeLastChildCleanup(t *testing.T) {
 
 	// Verify parent still exists
 	result := tree.LongestCommonPrefixMatch([]byte("ab"))
-	if result != 2 {
-		t.Errorf("Expected 2, got %d", result)
+	if result == nil || *result != 2 {
+		t.Errorf("Expected 2, got %v", result)
 	}
 
 	// Remove the middle node
@@ -526,8 +543,8 @@ func TestRemoveNodeLastChildCleanup(t *testing.T) {
 
 	// Verify only "a" remains
 	result = tree.LongestCommonPrefixMatch([]byte("a"))
-	if result != 1 {
-		t.Errorf("Expected 1, got %d", result)
+	if result == nil || *result != 1 {
+		t.Errorf("Expected 1, got %v", result)
 	}
 
 	// Remove the last node
@@ -535,7 +552,7 @@ func TestRemoveNodeLastChildCleanup(t *testing.T) {
 
 	// Verify tree is empty
 	result = tree.LongestCommonPrefixMatch([]byte("a"))
-	if result != 0 {
-		t.Errorf("Expected 0, got %d", result)
+	if result != nil {
+		t.Errorf("Expected nil, got %v", *result)
 	}
 }

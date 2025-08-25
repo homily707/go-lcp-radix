@@ -8,15 +8,26 @@ import (
 
 type Node[T any] struct {
 	Text     []byte
-	Val      T
+	Val      *T
+	End      bool
 	Children map[byte]*Node[T]
 	Parent   *Node[T]
 }
 
-func NewNode[T any](text []byte, val T) *Node[T] {
+func NewNode[T any](text []byte, val *T) *Node[T] {
 	return &Node[T]{
 		Text:     text,
 		Val:      val,
+		End:      true,
+		Children: map[byte]*Node[T]{},
+	}
+}
+
+func NewIntermediateNode[T any](text []byte, val *T) *Node[T] {
+	return &Node[T]{
+		Text:     text,
+		Val:      val,
+		End:      false,
 		Children: map[byte]*Node[T]{},
 	}
 }
@@ -60,7 +71,7 @@ func (t *Tree[T]) Insert(str []byte, val T) *Node[T] {
 		next, ok := cur.GetChild(char)
 		if !ok {
 			// no match, add new node to current children
-			newNode := NewNode(str[index:], val)
+			newNode := NewNode(str[index:], &val)
 			cur.AddChild(newNode)
 			return newNode
 		}
@@ -68,9 +79,9 @@ func (t *Tree[T]) Insert(str []byte, val T) *Node[T] {
 		if sharedPrefix < len(next.Text) {
 			// partial match, split node
 			// use this insert val as common node val, because it is most recent
-			commonNode := NewNode(next.Text[:sharedPrefix], val)
+			commonNode := NewIntermediateNode(next.Text[:sharedPrefix], &val)
 			next.Text = next.Text[sharedPrefix:]
-			newNode := NewNode(str[index+sharedPrefix:], val)
+			newNode := NewNode(str[index+sharedPrefix:], &val)
 			commonNode.AddChild(next)
 			commonNode.AddChild(newNode)
 			cur.AddChild(commonNode)
@@ -83,7 +94,7 @@ func (t *Tree[T]) Insert(str []byte, val T) *Node[T] {
 	return nil
 }
 
-func (t *Tree[T]) LongestCommonPrefixMatch(str []byte) T {
+func (t *Tree[T]) LongestCommonPrefixMatch(str []byte) *T {
 	mark := t.Root
 	index := 0
 	for index < len(str) {
@@ -120,9 +131,13 @@ func (t *Tree[T]) RemoveNode(node *Node[T]) {
 	}
 
 	delete(parent.Children, node.Text[0])
-	if len(parent.Children) == 0 {
+	if len(parent.Children) == 0 && !parent.End {
 		t.RemoveNode(parent)
 	} else {
+		if parent.Parent == nil {
+			// root node needs not to be updated
+			return
+		}
 		for _, v := range parent.Children {
 			parent.Val = v.Val
 			break
@@ -153,7 +168,11 @@ func (t *Tree[T]) printNode(node *Node[T], prefix string, result *strings.Builde
 	result.WriteString(displayText)
 
 	result.WriteString(" (val: ")
-	result.WriteString(fmt.Sprintf("%v", node.Val))
+	if node.Val == nil {
+		result.WriteString("nil")
+	} else {
+		result.WriteString(fmt.Sprintf("%v", *node.Val))
+	}
 	result.WriteString(")")
 	result.WriteString("\n")
 
@@ -173,10 +192,11 @@ func (t *Tree[T]) printNode(node *Node[T], prefix string, result *strings.Builde
 }
 
 func longestPrefix(a, b []byte) int {
-	for i := 0; i < len(a) && i < len(b); i++ {
+	i := 0
+	for ; i < len(a) && i < len(b); i++ {
 		if a[i] != b[i] {
 			return i
 		}
 	}
-	return len(a)
+	return i
 }

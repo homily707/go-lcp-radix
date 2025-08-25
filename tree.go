@@ -24,10 +24,10 @@ import (
 // It contains the text fragment, associated value, and child nodes.
 type Node[T any] struct {
 	Text     []byte            // Text fragment for this node
-	Val      *T               // Value associated with this node (nil for intermediate nodes)
-	End      bool             // Whether this node represents the end of a complete key
+	Val      *T                // Value associated with this node (nil for intermediate nodes)
+	End      bool              // Whether this node represents the end of a complete key
 	Children map[byte]*Node[T] // Child nodes indexed by first character
-	Parent   *Node[T]         // Parent node for tree traversal
+	Parent   *Node[T]          // Parent node for tree traversal
 }
 
 // NewNode creates a new leaf node with the given text and value.
@@ -94,6 +94,9 @@ func NewTree[T any]() *Tree[T] {
 // If the key already exists, it will be overwritten.
 // Returns the newly created node or nil if insertion failed.
 func (t *Tree[T]) Insert(str []byte, val T) *Node[T] {
+	if len(str) == 0 {
+		return nil
+	}
 	mark := t.Root
 	index := 0
 	for index < len(str) {
@@ -122,13 +125,16 @@ func (t *Tree[T]) Insert(str []byte, val T) *Node[T] {
 		index += sharedPrefix
 		mark = next
 	}
-	return nil
+	mark.Val = &val
+	mark.End = true
+	return mark
 }
 
 // LongestCommonPrefixMatch finds the longest prefix in the tree that matches the given string.
-// It returns the value associated with the longest matching prefix, or nil if no match is found.
+// It returns the longest common prefix and the value associated with the longest matching prefix, or nil if no match is found.
 // This is the core operation for prefix-based routing and matching.
-func (t *Tree[T]) LongestCommonPrefixMatch(str []byte) *T {
+func (t *Tree[T]) LongestCommonPrefixMatch(str []byte) ([]byte, *T) {
+	commonPrefix := []byte{}
 	mark := t.Root
 	index := 0
 	for index < len(str) {
@@ -141,6 +147,7 @@ func (t *Tree[T]) LongestCommonPrefixMatch(str []byte) *T {
 		}
 		mark = next
 		sharedPrefix := longestPrefix(next.Text, str[index:])
+		commonPrefix = append(commonPrefix, next.Text[:sharedPrefix]...)
 		if sharedPrefix < len(next.Text) {
 			// partial match, stop
 			break
@@ -148,7 +155,7 @@ func (t *Tree[T]) LongestCommonPrefixMatch(str []byte) *T {
 		// full match, move to next node
 		index += sharedPrefix
 	}
-	return mark.Val
+	return commonPrefix, mark.Val
 }
 
 // RemoveNode removes a node from the tree.

@@ -37,13 +37,13 @@ func main() {
     tree.Insert([]byte("hello-world"), 3)
     
     // Longest common prefix matching
-    result := tree.LongestCommonPrefixMatch([]byte("hello-world"))
-    fmt.Printf("Match: %d\n", *result) // Output: Match: 3
+    commonPrefix, result := tree.LongestCommonPrefixMatch([]byte("hello-world!"))
+    fmt.Printf("Common Prefix: %s, Match: %d\n", commonPrefix, *result) // Output: Common Prefix: hello-world, Match: 3
     
-    result = tree.LongestCommonPrefixMatch([]byte("hello there"))
-    fmt.Printf("Match: %d\n", *result) // Output: Match: 1
+    commonPrefix, result = tree.LongestCommonPrefixMatch([]byte("hello there"))
+    fmt.Printf("Common Prefix: %s, Match: %d\n", commonPrefix, *result) // Output: Common Prefix: hello, Match: 1
     
-    result = tree.LongestCommonPrefixMatch([]byte("wo"))
-    fmt.Printf("Match: %d\n", *result) // Output: Match: 2
+    commonPrefix, result = tree.LongestCommonPrefixMatch([]byte("wo"))
+    fmt.Printf("Common Prefix: %s, Match: %d\n", commonPrefix, *result) // Output: Common Prefix: wo, Match: 2
 }
 ```

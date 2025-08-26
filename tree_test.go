@@ -7,7 +7,7 @@ import (
 )
 
 func TestInsert(t *testing.T) {
-	tree := NewTree[int]()
+	tree := NewTree[byte, int]()
 
 	// Test 1: Insert first element
 	tree.Insert([]byte("hello"), 1)
@@ -35,7 +35,7 @@ func TestInsert(t *testing.T) {
 }
 
 func TestLongestCommonPrefixMatchEmptyTree(t *testing.T) {
-	tree := NewTree[int]()
+	tree := NewTree[byte, int]()
 	_, result := tree.LongestCommonPrefixMatch([]byte("test"))
 	if result != nil {
 		t.Errorf("Expected nil from empty tree, got %v", *result)
@@ -49,7 +49,7 @@ func TestLongestCommonPrefixMatchEmptyTree(t *testing.T) {
 }
 
 func TestComplexPrefixSplitting(t *testing.T) {
-	tree := NewTree[int]()
+	tree := NewTree[byte, int]()
 
 	// Insert strings that will create complex prefix splitting scenarios
 	tree.Insert([]byte("romane"), 1)
@@ -95,7 +95,7 @@ func TestComplexPrefixSplitting(t *testing.T) {
 }
 
 func TestNestedPrefixSplitting(t *testing.T) {
-	tree := NewTree[int]()
+	tree := NewTree[byte, int]()
 
 	// Create deeply nested prefix scenarios
 	tree.Insert([]byte("a"), 1)
@@ -136,7 +136,7 @@ func TestNestedPrefixSplitting(t *testing.T) {
 }
 
 func TestMultipleBranchesAtSameLevel(t *testing.T) {
-	tree := NewTree[int]()
+	tree := NewTree[byte, int]()
 
 	// Insert strings that create multiple branches from the same parent
 	tree.Insert([]byte("test"), 1)
@@ -177,7 +177,7 @@ func TestMultipleBranchesAtSameLevel(t *testing.T) {
 }
 
 func TestOverlappingPrefixes(t *testing.T) {
-	tree := NewTree[int]()
+	tree := NewTree[byte, int]()
 
 	// Insert strings with complex overlapping patterns
 	tree.Insert([]byte("inter"), 1)
@@ -219,7 +219,7 @@ func TestOverlappingPrefixes(t *testing.T) {
 }
 
 func TestEmptyAndSingleCharacterStrings(t *testing.T) {
-	tree := NewTree[int]()
+	tree := NewTree[byte, int]()
 
 	// Test edge cases with empty and single character strings
 	tree.Insert([]byte(""), 0)
@@ -260,7 +260,7 @@ func TestEmptyAndSingleCharacterStrings(t *testing.T) {
 }
 
 func TestVeryLongStrings(t *testing.T) {
-	tree := NewTree[int]()
+	tree := NewTree[byte, int]()
 
 	// Test with very long strings to test performance and edge cases
 	longStr1 := []byte("thisisaverylongstringthatshouldtesttheprefixmatchingcapabilitiesoftheradixtreeimplementation")
@@ -300,7 +300,7 @@ func TestVeryLongStrings(t *testing.T) {
 }
 
 func TestSpecialCharactersAndUnicode(t *testing.T) {
-	tree := NewTree[int]()
+	tree := NewTree[byte, int]()
 
 	// Test with special characters and unicode
 	tree.Insert([]byte("hello世界"), 1)
@@ -337,10 +337,15 @@ func TestSpecialCharactersAndUnicode(t *testing.T) {
 			t.Errorf("LCP(%q) = %v, expected %d", tc.input, *result, tc.expected)
 		}
 	}
+
+	match, _ := tree.LongestCommonPrefixMatch([]byte("hello世"))
+	if string(match) != "hello世" {
+		t.Errorf("LCP(%q) = %v, expected %q", "hello世", string(match), "hello世")
+	}
 }
 
 func TestInsertAfterLCP(t *testing.T) {
-	tree := NewTree[int]()
+	tree := NewTree[byte, int]()
 
 	// Insert initial strings
 	tree.Insert([]byte("test"), 1)
@@ -385,7 +390,7 @@ func TestInsertAfterLCP(t *testing.T) {
 }
 
 func TestRemoveNode(t *testing.T) {
-	tree := NewTree[int]()
+	tree := NewTree[byte, int]()
 
 	// Test 1: Remove leaf node
 	node1 := tree.Insert([]byte("hello"), 1)
@@ -414,7 +419,7 @@ func TestRemoveNode(t *testing.T) {
 }
 
 func TestRemoveNodeWithParentCleanup(t *testing.T) {
-	tree := NewTree[int]()
+	tree := NewTree[byte, int]()
 
 	// Insert strings that create parent-child relationships
 	tree.Insert([]byte("hello"), 1)
@@ -451,7 +456,7 @@ func TestRemoveNodeWithParentCleanup(t *testing.T) {
 }
 
 func TestRemoveRootNode(t *testing.T) {
-	tree := NewTree[int]()
+	tree := NewTree[byte, int]()
 
 	// Try to remove root node (should not panic)
 	tree.RemoveNode(tree.Root)
@@ -463,7 +468,7 @@ func TestRemoveRootNode(t *testing.T) {
 }
 
 func TestRemoveNonexistentNode(t *testing.T) {
-	tree := NewTree[int]()
+	tree := NewTree[byte, int]()
 
 	// Create a node not in the tree
 	externalNode := NewNode([]byte("external"), lo.ToPtr(42))
@@ -478,7 +483,7 @@ func TestRemoveNonexistentNode(t *testing.T) {
 }
 
 func TestRemoveNodeComplexTree(t *testing.T) {
-	tree := NewTree[int]()
+	tree := NewTree[byte, int]()
 
 	// Build a complex tree structure
 	tree.Insert([]byte("romanus"), 1)
@@ -522,7 +527,7 @@ func TestRemoveNodeComplexTree(t *testing.T) {
 }
 
 func TestRemoveNodeLastChildCleanup(t *testing.T) {
-	tree := NewTree[int]()
+	tree := NewTree[byte, int]()
 
 	// Insert strings that create a chain
 	node1 := tree.Insert([]byte("a"), 1)

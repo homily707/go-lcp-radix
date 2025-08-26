@@ -25,8 +25,14 @@ jobs:
     - name: Download dependencies
       run: go mod download
     
-    - name: Run tests
-      run: go test -v ./...
+    - name: Run tests with coverage
+      run: go test -v -covermode=count -coverprofile=coverage.txt ./...
     
     - name: Run tests with race detection
       run: go test -race -v ./...
+
+    - name: Upload coverage reports to Codecov
+      uses: codecov/codecov-action@v5
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        file: ./coverage.txt

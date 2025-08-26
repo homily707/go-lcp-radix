@@ -134,9 +134,9 @@ func (t *Tree[K, T]) Insert(str []K, val T) *Node[K, T] {
 }
 
 // LongestCommonPrefixMatch finds the longest prefix in the tree that matches the given string.
-// It returns the longest common prefix and the value associated with the longest matching prefix, or nil if no match is found.
+// It returns the longest common prefix and associated value and whether it is a exact match
 // This is the core operation for prefix-based routing and matching.
-func (t *Tree[K, T]) LongestCommonPrefixMatch(str []K) ([]K, *T) {
+func (t *Tree[K, T]) LongestCommonPrefixMatch(str []K) ([]K, *T, bool) {
 	commonPrefix := []K{}
 	mark := t.Root
 	index := 0
@@ -146,19 +146,19 @@ func (t *Tree[K, T]) LongestCommonPrefixMatch(str []K) ([]K, *T) {
 		// no match，stop at current node
 		next, ok := cur.GetChild(char)
 		if !ok {
-			break
+			return commonPrefix, mark.Val, false
 		}
 		mark = next
 		sharedPrefix := longestPrefix(next.Text, str[index:])
 		commonPrefix = append(commonPrefix, next.Text[:sharedPrefix]...)
 		if sharedPrefix < len(next.Text) {
 			// partial match, stop
-			break
+			return commonPrefix, mark.Val, false
 		}
 		// full match, move to next node
 		index += sharedPrefix
 	}
-	return commonPrefix, mark.Val
+	return commonPrefix, mark.Val, mark.End
 }
 
 // RemoveNode removes a node from the tree.
@@ -210,7 +210,12 @@ func (t *Tree[K, T]) printNode(node *Node[K, T], prefix string, result *strings.
 	if len(node.Text) == 0 {
 		displayText = "ROOT"
 	} else {
-		displayText = fmt.Sprintf("%v", node.Text)
+		switch v := any(node.Text).(type) {
+		case []byte, []rune:
+			displayText = fmt.Sprintf("%s", v)
+		default:
+			displayText = fmt.Sprintf("%v", node.Text)
+		}
 	}
 
 	result.WriteString(prefix)

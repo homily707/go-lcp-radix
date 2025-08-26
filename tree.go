@@ -1,17 +1,17 @@
 // Package lradix implements a radix tree (prefix tree) that supports longest common prefix matching.
 //
 // This package provides a generic radix tree implementation that can store any type of value
-// associated with string keys. The tree automatically handles prefix splitting and merging
+// associated with keys of any comparable type. The tree automatically handles prefix splitting and merging
 // to optimize storage and provide efficient longest prefix matching.
 //
 // Basic usage:
 //
-//	tree := lradix.NewTree[int]()
+//	tree := lradix.NewTree[byte, int]()
 //	tree.Insert([]byte("hello"), 1)
 //	tree.Insert([]byte("world"), 2)
 //
-//	result := tree.LongestCommonPrefixMatch([]byte("hello world"))
-//	// result will be 1
+//	prefix, value, exact := tree.LongestCommonPrefixMatch([]byte("hello world"))
+//	// prefix will be []byte("hello"), value will be 1, exact will be false
 package lradix
 
 import (
@@ -20,16 +20,16 @@ import (
 )
 
 // Node represents a node in the radix tree.
-// It contains the text fragment, associated value, and child nodes.
+// It contains the text fragment of type K, associated value of type T, and child nodes.
 type Node[K comparable, T any] struct {
-	Text     []K               // Text fragment for this node
-	Val      *T                // Value associated with this node (nil for intermediate nodes)
+	Text     []K               // Text fragment for this node (of comparable type K)
+	Val      *T                // Value associated with this node (nil for intermediate nodes, of type T)
 	End      bool              // Whether this node represents the end of a complete key
-	Children map[K]*Node[K, T] // Child nodes indexed by first character
+	Children map[K]*Node[K, T] // Child nodes indexed by first character (key type K)
 	Parent   *Node[K, T]       // Parent node for tree traversal
 }
 
-// NewNode creates a new leaf node with the given text and value.
+// NewNode creates a new leaf node with the given text (type K) and value (type T).
 // A leaf node represents the end of a complete key.
 func NewNode[K comparable, T any](text []K, val *T) *Node[K, T] {
 	return &Node[K, T]{
@@ -40,7 +40,7 @@ func NewNode[K comparable, T any](text []K, val *T) *Node[K, T] {
 	}
 }
 
-// NewIntermediateNode creates a new intermediate node with the given text and value.
+// NewIntermediateNode creates a new intermediate node with the given text (type K) and value (type T).
 // An intermediate node does not represent the end of a complete key.
 func NewIntermediateNode[K comparable, T any](text []K, val *T) *Node[K, T] {
 	return &Node[K, T]{
@@ -52,7 +52,7 @@ func NewIntermediateNode[K comparable, T any](text []K, val *T) *Node[K, T] {
 }
 
 // AddChild adds a child node to this node.
-// It automatically sets the parent pointer and indexes the child by its first character.
+// It automatically sets the parent pointer and indexes the child by its first character (type K).
 func (n *Node[K, T]) AddChild(node *Node[K, T]) {
 	if len(node.Text) == 0 {
 		return
@@ -64,7 +64,7 @@ func (n *Node[K, T]) AddChild(node *Node[K, T]) {
 	n.Children[node.Text[0]] = node
 }
 
-// GetChild retrieves a child node by its first character.
+// GetChild retrieves a child node by its first character (type K).
 // Returns the child node and a boolean indicating if it was found.
 func (n *Node[K, T]) GetChild(head K) (*Node[K, T], bool) {
 	child, ok := n.Children[head]
@@ -72,12 +72,12 @@ func (n *Node[K, T]) GetChild(head K) (*Node[K, T], bool) {
 }
 
 // Tree represents a radix tree data structure.
-// It provides efficient insertion and longest common prefix matching operations.
+// It provides efficient insertion and longest common prefix matching operations for keys of type K and values of type T.
 type Tree[K comparable, T any] struct {
 	Root *Node[K, T] // Root node of the tree
 }
 
-// NewTree creates a new empty radix tree.
+// NewTree creates a new empty radix tree with keys of type K and values of type T.
 func NewTree[K comparable, T any]() *Tree[K, T] {
 	return &Tree[K, T]{
 		Root: &Node[K, T]{
@@ -88,7 +88,7 @@ func NewTree[K comparable, T any]() *Tree[K, T] {
 }
 
 // Insert inserts a key-value pair into the tree.
-// The key is represented as a byte slice, and the value can be of any type.
+// The key is represented as a slice of type K, and the value is of type T.
 // If the key already exists, it will be overwritten.
 // Returns the newly created node or nil if insertion failed.
 func (t *Tree[K, T]) Insert(str []K, val T) *Node[K, T] {
@@ -133,8 +133,9 @@ func (t *Tree[K, T]) Insert(str []K, val T) *Node[K, T] {
 	return mark
 }
 
-// LongestCommonPrefixMatch finds the longest prefix in the tree that matches the given string.
-// It returns the longest common prefix and associated value and whether it is a exact match
+// LongestCommonPrefixMatch finds the longest prefix in the tree that matches the given key.
+// It returns three values: the longest common prefix (slice of type K), associated value (pointer to type T),
+// and a boolean indicating whether it is an exact match.
 // This is the core operation for prefix-based routing and matching.
 func (t *Tree[K, T]) LongestCommonPrefixMatch(str []K) ([]K, *T, bool) {
 	commonPrefix := []K{}
@@ -165,6 +166,7 @@ func (t *Tree[K, T]) LongestCommonPrefixMatch(str []K) ([]K, *T, bool) {
 // Only leaf nodes (nodes without children) can be removed.
 // When a leaf node is removed, its parent may also be removed if it becomes
 // an intermediate node with no children and doesn't represent a complete key.
+// The node parameter is of type Node[K, T] with the same generic types as the tree.
 func (t *Tree[K, T]) RemoveNode(node *Node[K, T]) {
 	if len(node.Children) > 0 {
 		// has children, can't be removed
@@ -193,7 +195,7 @@ func (t *Tree[K, T]) RemoveNode(node *Node[K, T]) {
 }
 
 // String returns a string representation of the tree structure.
-// Useful for debugging and visualization.
+// Useful for debugging and visualization. Handles different key types appropriately.
 func (t *Tree[K, T]) String() string {
 	var result strings.Builder
 	t.printNode(t.Root, "", &result)
@@ -201,6 +203,7 @@ func (t *Tree[K, T]) String() string {
 }
 
 // printNode recursively prints a node and its children for the String() method.
+// Handles different key types (K) for proper string representation.
 func (t *Tree[K, T]) printNode(node *Node[K, T], prefix string, result *strings.Builder) {
 	if node == nil {
 		return
@@ -237,7 +240,7 @@ func (t *Tree[K, T]) printNode(node *Node[K, T], prefix string, result *strings.
 	}
 }
 
-// longestPrefix returns the length of the longest common prefix between two byte slices.
+// longestPrefix returns the length of the longest common prefix between two slices of type K.
 // This is a helper function used for prefix matching and node splitting.
 func longestPrefix[K comparable](a, b []K) int {
 	i := 0

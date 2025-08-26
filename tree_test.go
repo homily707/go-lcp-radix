@@ -1,6 +1,7 @@
 package lradix
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/samber/lo"
@@ -10,6 +11,7 @@ func TestInsert(t *testing.T) {
 	tree := NewTree[byte, int]()
 
 	// Test 1: Insert first element
+	// Insert key-value pairs
 	tree.Insert([]byte("hello"), 1)
 	if tree.Root == nil {
 		t.Fatal("Root should not be nil")
@@ -18,6 +20,12 @@ func TestInsert(t *testing.T) {
 	// Test 2: Insert multiple elements
 	tree.Insert([]byte("hey"), 2)
 	tree.Insert([]byte("hi"), 3)
+	s := tree.String()
+	// fmt.Println(s)
+	num := strings.Count(s, "└──")
+	if num != 6 {
+		t.Errorf("Expected 6 node, got %d", num-1)
+	}
 
 	// Check that children exist
 	if len(tree.Root.Children) != 1 {

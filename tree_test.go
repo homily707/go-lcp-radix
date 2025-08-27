@@ -3,8 +3,6 @@ package lradix
 import (
 	"strings"
 	"testing"
-
-	"github.com/samber/lo"
 )
 
 func TestInsert(t *testing.T) {
@@ -520,8 +518,9 @@ func TestRemoveRootNode(t *testing.T) {
 func TestRemoveNonexistentNode(t *testing.T) {
 	tree := NewTree[byte, int]()
 
+	x := 42
 	// Create a node not in the tree
-	externalNode := NewNode([]byte("external"), lo.ToPtr(42))
+	externalNode := NewNode([]byte("external"), &x)
 
 	// Try to remove it (should not panic)
 	tree.RemoveNode(externalNode)

@@ -169,7 +169,10 @@ func (t *Tree[K, T]) LongestCommonPrefixMatch(str []K) ([]K, *T, bool) {
 // The node parameter is of type Node[K, T] with the same generic types as the tree.
 func (t *Tree[K, T]) RemoveNode(node *Node[K, T]) {
 	if len(node.Children) > 0 {
-		// has children, can't be removed
+		for _, v := range node.Children {
+			node.Val = v.Val
+		}
+		node.End = false
 		return
 	}
 	parent := node.Parent
@@ -214,8 +217,10 @@ func (t *Tree[K, T]) printNode(node *Node[K, T], prefix string, result *strings.
 		displayText = "ROOT"
 	} else {
 		switch v := any(node.Text).(type) {
-		case []byte, []rune:
-			displayText = fmt.Sprintf("%s", v)
+		case []byte:
+			displayText = string(v)
+		case []rune:
+			displayText = string(v)
 		default:
 			displayText = fmt.Sprintf("%v", node.Text)
 		}

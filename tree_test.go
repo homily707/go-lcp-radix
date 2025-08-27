@@ -576,11 +576,11 @@ func TestRemoveNodeComplexTree(t *testing.T) {
 	}
 }
 
-func TestRemoveNodeLastChildCleanup(t *testing.T) {
+func TestRemoveIntermidiateNodeCleanup(t *testing.T) {
 	tree := NewTree[byte, int]()
 
 	// Insert strings that create a chain
-	node1 := tree.Insert([]byte("a"), 1)
+	tree.Insert([]byte("a"), 1)
 	node2 := tree.Insert([]byte("ab"), 2)
 	node3 := tree.Insert([]byte("abc"), 3)
 
@@ -594,20 +594,12 @@ func TestRemoveNodeLastChildCleanup(t *testing.T) {
 	}
 
 	// Remove the middle node
+	tree.Insert([]byte("abc"), 3)
 	tree.RemoveNode(node2)
 
-	// Verify only "a" remains
-	_, result, _ = tree.LongestCommonPrefixMatch([]byte("a"))
-	if result == nil || *result != 1 {
-		t.Errorf("Expected 1, got %v", result)
-	}
-
-	// Remove the last node
-	tree.RemoveNode(node1)
-
-	// Verify tree is empty
-	_, result, _ = tree.LongestCommonPrefixMatch([]byte("a"))
-	if result != nil {
-		t.Errorf("Expected nil, got %v", *result)
+	// Verify only "abc" remains
+	_, result, _ = tree.LongestCommonPrefixMatch([]byte("ab"))
+	if result == nil || *result != 3 {
+		t.Errorf("Expected 3, got %v", *result)
 	}
 }

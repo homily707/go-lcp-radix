@@ -201,13 +201,13 @@ func (t *Tree[K, T]) RemoveNode(node *Node[K, T]) {
 // Useful for debugging and visualization. Handles different key types appropriately.
 func (t *Tree[K, T]) String() string {
 	var result strings.Builder
-	t.printNode(t.Root, "", &result)
+	printNode(t.Root, "", &result)
 	return result.String()
 }
 
 // printNode recursively prints a node and its children for the String() method.
 // Handles different key types (K) for proper string representation.
-func (t *Tree[K, T]) printNode(node *Node[K, T], prefix string, result *strings.Builder) {
+func printNode[K comparable, T any](node *Node[K, T], prefix string, result *strings.Builder) {
 	if node == nil {
 		return
 	}
@@ -241,7 +241,7 @@ func (t *Tree[K, T]) printNode(node *Node[K, T], prefix string, result *strings.
 
 	newPrefix := prefix + "   "
 	for _, child := range node.Children {
-		t.printNode(child, newPrefix, result)
+		printNode(child, newPrefix, result)
 	}
 }
 

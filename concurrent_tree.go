@@ -7,7 +7,7 @@ import (
 )
 
 // ConcurrentNode represents a thread-safe node in the radix tree.
-// It contains a read-write mutex for concurrent access, text fragment of type K, 
+// It contains a read-write mutex for concurrent access, text fragment of type K,
 // associated value of type T, and child nodes. The mutex ensures thread-safe
 // operations on the node's data.
 type ConcurrentNode[K comparable, T any] struct {
@@ -55,7 +55,7 @@ func NewConcurrentNode[K comparable, T any](text []K, val *T, end bool) *Concurr
 }
 
 // ConcurrentTree represents a thread-safe radix tree data structure.
-// It provides efficient concurrent insertion and longest common prefix matching operations 
+// It provides efficient concurrent insertion and longest common prefix matching operations
 // for keys of type K and values of type T. All operations are thread-safe and use
 // fine-grained locking to maximize concurrency.
 type ConcurrentTree[K comparable, T any] struct {
@@ -149,12 +149,13 @@ func (t *ConcurrentTree[K, T]) LongestCommonPrefixMatch(str []K) ([]K, *T, bool)
 		mark = next
 		next.RLock()
 		matchText := next.Text
+		matchVal := next.Val
 		next.RUnlock()
 		sharedPrefix := longestPrefix(matchText, str[index:])
 		commonPrefix = append(commonPrefix, matchText[:sharedPrefix]...)
 		if sharedPrefix < len(matchText) {
 			// partial match, stop
-			return commonPrefix, mark.Val, false
+			return commonPrefix, matchVal, false
 		}
 		// full match, move to next node
 		index += sharedPrefix

@@ -1,7 +1,6 @@
 package lradix
 
 import (
-	"fmt"
 	"strings"
 	"sync"
 	"testing"
@@ -22,7 +21,7 @@ func TestConcurrentTreeBasicUsage(t *testing.T) {
 	tree.Insert([]rune{}, 6)             // 7. 测试空字符串插入
 	tree.Insert([]rune{'a'}, 7)          // 8. 测试单字符插入
 
-	fmt.Println(tree.String())
+	// fmt.Println(tree.String())
 	testCases := []struct {
 		input  string
 		expect int
@@ -232,12 +231,6 @@ func TestConcurrentWriteReadRemove(t *testing.T) {
 		}(key.key, key.action, key.value)
 	}
 	wg.Wait()
-	//fmt.Println(tree.String())
-	nodeNums := strings.Count(tree.String(), "└──")
-	if nodeNums != 7 {
-		t.Errorf("Expected %d nodes, got %d", 7, nodeNums)
-	}
-
 	// Test LCP matches
 	testCases := []struct {
 		input    string

@@ -209,9 +209,9 @@ func TestConcurrentWriteReadRemove(t *testing.T) {
 		{nil, "help!help!", "insert", 2},
 		{nil, "helloworld", "insert", 3},
 		{nil, "hi", "insert", 4},
+		{node2, "", "remove", 0},
 		{nil, "hello", "lcp", 0},
 		{nil, "hey", "lcp", 0},
-		{node2, "", "remove", 0},
 		{node3, "", "remove", 0},
 	}
 

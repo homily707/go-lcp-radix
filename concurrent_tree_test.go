@@ -2,10 +2,12 @@ package lradix
 
 import (
 	"fmt"
+	"strings"
+	"sync"
 	"testing"
 )
 
-func Test_BasicUsage(t *testing.T) {
+func TestConcurrentTreeBasicUsage(t *testing.T) {
 	// 1. 测试树和节点创建
 	tree := NewConcurrentTree[rune, int]()
 	if tree.Root == nil {
@@ -41,7 +43,7 @@ func Test_BasicUsage(t *testing.T) {
 	}
 }
 
-func Test_RemoveNode(t *testing.T) {
+func TestConcurrentTreeRemoveNode(t *testing.T) {
 	// 1. 测试树和节点创建
 	tree := NewConcurrentTree[rune, int]()
 	if tree.Root == nil {
@@ -90,47 +92,169 @@ func Test_RemoveNode(t *testing.T) {
 	}
 }
 
-// TODO:
-// 1. 并发插入测试
+// 并发插入测试
+func TestConcurrentInsert(t *testing.T) {
+	tree := NewConcurrentTree[rune, int]()
+	var wg sync.WaitGroup
 
-//   - 无冲突并发插入: 多个goroutine同时插入不共享前缀的键
-//   - 前缀冲突并发插入: 多个goroutine同时插入共享前缀的键
-//   - 相同键并发插入: 多个goroutine同时插入相同的键
-//   - 混合并发插入: 不同类型的插入操作混合执行
+	// 准备不同类型的键
+	keys := []struct {
+		key   string
+		value int
+	}{
+		{"apple", 1},
+		{"banana", 2},
+		{"orange", 3},
+		{"hello", 4},
+		{"help", 5},
+		{"helloworld", 6},
+		{"hello", 7},
+		{"hel", 8},
+	}
 
-//   2. 并发读写测试
+	for _, key := range keys {
+		wg.Add(1)
+		go func(k string, v int) {
+			defer wg.Done()
+			tree.Insert([]rune(k), v)
+		}(key.key, key.value)
+	}
+	wg.Wait()
+	nodeNums := strings.Count(tree.String(), "└──")
+	if nodeNums != 8 {
+		t.Errorf("Expected %d nodes, got %d", 8, nodeNums)
+	}
+}
 
-//   - 并发插入和查询: 插入操作同时进行查询操作
-//   - 并发删除和查询: 删除操作同时进行查询操作
-//   - 并发全量操作: 插入、删除、查询同时进行
+func TestConcurrentWriteRead(t *testing.T) {
+	tree := NewConcurrentTree[rune, int]()
+	tree.Insert([]rune("hello"), 1)
+	keys := []struct {
+		key    string
+		action string
+		value  int
+	}{
+		// 基础前缀测试
+		{"help", "insert", 2},
+		{"helloworld", "insert", 3},
+		{"hello", "lcp", 1},
+		{"hel", "lcp", 1},
 
-//   3. 锁竞争测试
+		// 更复杂的 keys 测试
+		{"helloworld123", "insert", 4}, // 扩展已有路径
+		{"helpdesk", "insert", 5},      // 分支扩展
+		{"helloworld123456", "lcp", 0}, // 长路径匹配
+		{"helpdeskmanager", "lcp", 0},  // 分支匹配
+		{"hexagon", "insert", 6},       // 共享前缀但不同路径
+		{"healing", "insert", 7},       // 另一个共享前缀
+		{"hex", "lcp", 0},              // 部分匹配
+	}
 
-//   - 高竞争插入: 大量goroutine竞争插入相同前缀的键
-//   - 读写锁竞争: 同时进行大量的读和写操作
-//   - 死锁预防测试: 验证复杂的锁获取顺序不会导致死锁
+	var wg sync.WaitGroup
+	for _, key := range keys {
+		wg.Add(1)
+		go func(k string, action string, v int) {
+			defer wg.Done()
+			switch action {
+			case "insert":
+				tree.Insert([]rune(k), v)
+			case "lcp":
+				tree.LongestCommonPrefixMatch([]rune(k))
+			}
+		}(key.key, key.action, key.value)
+	}
+	wg.Wait()
+	//fmt.Println(tree.String())
 
-//   4. 数据一致性测试
+	// 验证最终树结构的一致性
+	testCases := []struct {
+		input    string
+		expected int
+	}{
+		{"hello", 1},
+		{"help", 2},
+		{"helloworld", 3},
+		{"helloworld123", 4},
+		{"helpdesk", 5},
+		{"hexagon", 6},
+		{"healing", 7},
 
-//   - 最终一致性: 并发操作后树的状态应该是正确的
-//   - 原子性验证: 单个操作要么完全成功要么完全失败
-//   - 隔离性验证: 并发操作不应该相互影响
+		// 前缀匹配测试
+		{"helloworld123456", 4},
+		{"helpdeskmanager", 5},
+		{"hex", 6},
+	}
 
-//   5. 性能和压力测试
+	for _, tc := range testCases {
+		_, result, _ := tree.LongestCommonPrefixMatch([]rune(tc.input))
+		if result == nil {
+			t.Errorf("LCP(%q) = nil, expected %d", tc.input, tc.expected)
+		} else if *result != tc.expected {
+			t.Errorf("LCP(%q) = %v, expected %d", tc.input, *result, tc.expected)
+		}
+	}
+}
 
-//   - 基准测试: 测试单线程和多线程下的性能
-//   - 压力测试: 大量并发操作下的稳定性
-//   - 内存泄漏测试: 长时间运行下的内存使用情况
+func TestConcurrentWriteReadRemove(t *testing.T) {
+	tree := NewConcurrentTree[rune, int]()
+	tree.Insert([]rune("hello"), 1)
+	node2 := tree.Insert([]rune("help"), 2)
+	node3 := tree.Insert([]rune("helper"), 3)
 
-//   6. 边界条件测试
+	keys := []struct {
+		node   *ConcurrentNode[rune, int]
+		key    string
+		action string
+		value  int
+	}{
+		{nil, "help!help!", "insert", 2},
+		{nil, "helloworld", "insert", 3},
+		{nil, "hi", "insert", 4},
+		{nil, "hello", "lcp", 0},
+		{nil, "hey", "lcp", 0},
+		{node2, "", "remove", 0},
+		{node3, "", "remove", 0},
+	}
 
-//   - 空树并发操作: 在空树上进行并发操作
-//   - 大量重复键: 插入大量相同或相似的键
-//   - 极长键: 插入很长的键测试锁的粒度
-//   - 混合类型: 使用不同的K和T类型进行测试
+	var wg sync.WaitGroup
+	for _, key := range keys {
+		wg.Add(1)
+		go func(k string, action string, v int) {
+			defer wg.Done()
+			switch action {
+			case "insert":
+				tree.Insert([]rune(k), v)
+			case "lcp":
+				tree.LongestCommonPrefixMatch([]rune(k))
+			case "remove":
+				tree.RemoveNode(key.node)
+			}
+		}(key.key, key.action, key.value)
+	}
+	wg.Wait()
+	//fmt.Println(tree.String())
+	nodeNums := strings.Count(tree.String(), "└──")
+	if nodeNums != 7 {
+		t.Errorf("Expected %d nodes, got %d", 7, nodeNums)
+	}
 
-//   7. 特定场景测试
+	// Test LCP matches
+	testCases := []struct {
+		input    string
+		expected int
+	}{
+		{"hello", 1},
+		{"helloworkd", 3},
+		{"hi", 4},
+		{"help", 2},
+	}
 
-//   - 节点分裂并发: 测试节点分裂过程中的并发安全性
-//   - 节点删除并发: 测试节点删除过程中的并发安全性
-//   - 树重构并发: 测试树结构变化过程中的并发安全性
+	for _, tc := range testCases {
+		_, result, _ := tree.LongestCommonPrefixMatch([]rune(tc.input))
+		if result == nil && tc.expected != 0 {
+			t.Errorf("LCP(%q) = nil, expected %d", tc.input, tc.expected)
+		} else if result != nil && *result != tc.expected {
+			t.Errorf("LCP(%q) = %v, expected %d", tc.input, *result, tc.expected)
+		}
+	}
+}

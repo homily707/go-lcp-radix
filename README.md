@@ -14,7 +14,7 @@ A high-performance radix tree (prefix tree) implementation in Go with efficient 
 - **Node Removal**: Safe removal of leaf nodes with automatic tree cleanup
 - **Tree Visualization**: Built-in tree printing for debugging and visualization
 - **Unicode Support**: Full UTF-8 support for international text
-- **[TODO] Thread-Safe Operations**: All operations are non-mutating except for Insert/Remove
+- **Thread-Safe Operations**: Concurrent tree implementation with fine-grained locking for high-performance concurrent access
 
 ## Installation
 
@@ -46,11 +46,11 @@ func main() {
     fmt.Println(tree.String())
     // Tree structure:
     // └──ROOT (val: nil)
-    //    └──h (val: 3)
-    //       └──e (val: 2)
-    //          └──llo (val: 1)
-    //          └──y (val: 2)
-    //       └──i (val: 3)
+    //      └──h (val: 3)
+    //         └──e (val: 2)
+    //            └──llo (val: 1)
+    //            └──y (val: 2)
+    //         └──i (val: 3)
     
     
     // Longest common prefix matching
@@ -65,3 +65,42 @@ func main() {
     // Output: LCP: hell, Match: 1, Exact: false
 }
 ```
+
+## Concurrent Tree Usage
+
+The package also provides a thread-safe concurrent tree implementation for use in multi-threaded environments:
+
+```go
+package main
+
+import (
+    "fmt"
+    "github.com/homily707/go-lcp-radix"
+)
+
+func main() {
+    // Create a new concurrent tree
+    tree := lradix.NewConcurrentTree[byte, int]()
+    
+    // Insert key-value pairs (thread-safe)
+    tree.Insert([]byte("hello"), 1)
+    tree.Insert([]byte("world"), 2)
+    
+    // Longest common prefix matching (thread-safe)
+    lcp, result, isExact := tree.LongestCommonPrefixMatch([]byte("hello-world!"))
+    fmt.Printf("LCP: %s, Match: %v, Exact: %t\n", lcp, *result, isExact) 
+    // Output: LCP: hello, Match: 1, Exact: false
+    
+    // Print the tree structure (thread-safe)
+    fmt.Println("Concurrent tree structure:")
+    fmt.Println(tree.String())
+}
+```
+
+### Thread Safety Features
+
+- **Fine-grained locking**: Each node has its own read-write mutex
+- **Concurrent reads**: Multiple readers can access the tree simultaneously
+- **Write synchronization**: All write operations are properly synchronized
+- **Lock-free reads**: LongestCommonPrefixMatch uses read locks for maximum concurrency
+- **Safe node removal**: RemoveNode handles complex locking scenarios correctly

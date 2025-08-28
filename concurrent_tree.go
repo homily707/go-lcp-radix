@@ -6,6 +6,10 @@ import (
 	"sync"
 )
 
+// ConcurrentNode represents a thread-safe node in the radix tree.
+// It contains a read-write mutex for concurrent access, text fragment of type K, 
+// associated value of type T, and child nodes. The mutex ensures thread-safe
+// operations on the node's data.
 type ConcurrentNode[K comparable, T any] struct {
 	sync.RWMutex
 	Text     []K                         // Text fragment for this node (of comparable type K)
@@ -15,12 +19,18 @@ type ConcurrentNode[K comparable, T any] struct {
 	Parent   *ConcurrentNode[K, T]       // Parent node for tree traversal
 }
 
+// GetChild retrieves a child node by its first character (type K).
+// Returns the child node and a boolean indicating if it was found.
+// This operation is thread-safe and does not require external locking.
 func (n *ConcurrentNode[K, T]) GetChild(head K) (*ConcurrentNode[K, T], bool) {
 	child, ok := n.Children[head]
 	return child, ok
 }
 
-// must hold lock of both parent and child
+// AddChild adds a child node to this node.
+// It automatically sets the parent pointer and indexes the child by its first character (type K).
+// Note: This method must hold locks of both parent and child nodes to ensure thread safety.
+// The caller is responsible for acquiring the necessary locks before calling this method.
 func (n *ConcurrentNode[K, T]) AddChild(node *ConcurrentNode[K, T]) {
 	if len(node.Text) == 0 {
 		return
@@ -32,6 +42,9 @@ func (n *ConcurrentNode[K, T]) AddChild(node *ConcurrentNode[K, T]) {
 	n.Children[node.Text[0]] = node
 }
 
+// NewConcurrentNode creates a new concurrent node with the given text (type K), value (type T), and end flag.
+// The node is initialized with an empty children map and is ready for concurrent operations.
+// The end flag determines whether this node represents the end of a complete key.
 func NewConcurrentNode[K comparable, T any](text []K, val *T, end bool) *ConcurrentNode[K, T] {
 	return &ConcurrentNode[K, T]{
 		Text:     text,
@@ -41,16 +54,27 @@ func NewConcurrentNode[K comparable, T any](text []K, val *T, end bool) *Concurr
 	}
 }
 
+// ConcurrentTree represents a thread-safe radix tree data structure.
+// It provides efficient concurrent insertion and longest common prefix matching operations 
+// for keys of type K and values of type T. All operations are thread-safe and use
+// fine-grained locking to maximize concurrency.
 type ConcurrentTree[K comparable, T any] struct {
-	Root *ConcurrentNode[K, T]
+	Root *ConcurrentNode[K, T] // Root node of the tree
 }
 
+// NewConcurrentTree creates a new empty concurrent radix tree with keys of type K and values of type T.
+// The tree is initialized with a root node and is ready for concurrent operations.
 func NewConcurrentTree[K comparable, T any]() *ConcurrentTree[K, T] {
 	return &ConcurrentTree[K, T]{
 		Root: NewConcurrentNode[K, T]([]K{}, nil, false),
 	}
 }
 
+// Insert inserts a key-value pair into the tree in a thread-safe manner.
+// The key is represented as a slice of type K, and the value is of type T.
+// If the key already exists, it will be overwritten.
+// This method uses fine-grained locking to ensure thread safety while maximizing concurrency.
+// Returns the newly created node or nil if insertion failed.
 func (t *ConcurrentTree[K, T]) Insert(str []K, val T) *ConcurrentNode[K, T] {
 	if len(str) == 0 {
 		return nil
@@ -104,6 +128,10 @@ func (t *ConcurrentTree[K, T]) Insert(str []K, val T) *ConcurrentNode[K, T] {
 	return mark
 }
 
+// LongestCommonPrefixMatch finds the longest prefix in the tree that matches the given key.
+// It returns three values: the longest common prefix (slice of type K), associated value (pointer to type T),
+// and a boolean indicating whether it is an exact match. This operation is thread-safe and uses
+// read locks to allow concurrent reads while ensuring data consistency.
 func (t *ConcurrentTree[K, T]) LongestCommonPrefixMatch(str []K) ([]K, *T, bool) {
 	commonPrefix := []K{}
 	mark := t.Root
@@ -136,6 +164,11 @@ func (t *ConcurrentTree[K, T]) LongestCommonPrefixMatch(str []K) ([]K, *T, bool)
 	return commonPrefix, mark.Val, mark.End
 }
 
+// RemoveNode removes a node from the tree in a thread-safe manner.
+// Only leaf nodes (nodes without children) can be removed.
+// When a leaf node is removed, its parent may also be removed if it becomes
+// an intermediate node with no children and doesn't represent a complete key.
+// This method uses proper locking to ensure thread safety during the removal process.
 func (t *ConcurrentTree[K, T]) RemoveNode(node *ConcurrentNode[K, T]) {
 	node.Lock()
 	defer node.Unlock()
@@ -169,12 +202,18 @@ func (t *ConcurrentTree[K, T]) RemoveNode(node *ConcurrentNode[K, T]) {
 	}
 }
 
+// String returns a string representation of the tree structure.
+// Useful for debugging and visualization. Handles different key types appropriately.
+// This operation is thread-safe and uses read locks to ensure consistent output.
 func (t *ConcurrentTree[K, T]) String() string {
 	var result strings.Builder
 	printConcurrentNode(t.Root, "", &result)
 	return result.String()
 }
 
+// printConcurrentNode recursively prints a node and its children for the String() method.
+// Handles different key types (K) for proper string representation. This operation
+// is thread-safe and uses read locks to ensure consistent output.
 func printConcurrentNode[K comparable, T any](node *ConcurrentNode[K, T], prefix string, result *strings.Builder) {
 	if node == nil {
 		return

@@ -100,6 +100,10 @@ func (t *ConcurrentTree[K, T]) Insert(str []K, val T) *ConcurrentNode[K, T] {
 			// use this insert val as common node val, because it is most recent
 			commonNode := NewConcurrentNode(next.Text[:sharedPrefix], &val, false)
 			cur.AddChild(commonNode)
+			if cur.Parent != nil {
+				// if not root, update parent val
+				cur.Val = &val
+			}
 			next.Text = next.Text[sharedPrefix:]
 			commonNode.AddChild(next)
 			if index+sharedPrefix < len(str) {
@@ -142,9 +146,10 @@ func (t *ConcurrentTree[K, T]) LongestCommonPrefixMatch(str []K) ([]K, *T, bool)
 		// no match，stop at current node
 		cur.RLock()
 		next, ok := cur.GetChild(char)
+		val := cur.Val
 		cur.RUnlock()
 		if !ok {
-			return commonPrefix, mark.Val, false
+			return commonPrefix, val, false
 		}
 		mark = next
 		next.RLock()

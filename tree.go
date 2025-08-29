@@ -113,6 +113,10 @@ func (t *Tree[K, T]) Insert(str []K, val T) *Node[K, T] {
 			// use this insert val as common node val, because it is most recent
 			commonNode := NewIntermediateNode(next.Text[:sharedPrefix], &val)
 			cur.AddChild(commonNode)
+			if cur.Parent != nil {
+				// if not root, update parent val
+				cur.Val = &val
+			}
 			next.Text = next.Text[sharedPrefix:]
 			commonNode.AddChild(next)
 			if index+sharedPrefix < len(str) {

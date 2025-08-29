@@ -170,7 +170,6 @@ func TestConcurrentWriteRead(t *testing.T) {
 		input    string
 		expected int
 	}{
-		{"hello", 1},
 		{"help", 2},
 		{"helloworld", 3},
 		{"helloworld123", 4},

@@ -1,10 +1,103 @@
 package lradix
 
 import (
+	"fmt"
+	"math/rand"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 )
+
+// generateRandomKey 生成具有随机性但保持匹配性的 key
+// 平均长度 4k，范围 1-16k
+func generateRandomKey(base string, counter int) []byte {
+	r := rand.New(rand.NewSource(time.Now().UnixNano() + int64(counter)))
+
+	// 生成随机长度，使用正态分布让平均值在 4k 附近
+	// 最小值 1，最大值 16k (16384)
+	length := 1 + int(r.NormFloat64()*2000+4000)
+	if length < 1 {
+		length = 1
+	}
+	if length > 16384 {
+		length = 16384
+	}
+
+	// 生成基础 key
+	baseKey := fmt.Sprintf("%s-%d", base, counter)
+
+	// 如果基础 key 已经超过目标长度，截取
+	if len(baseKey) >= length {
+		return []byte(baseKey[:length])
+	}
+
+	// 否则用随机字符填充到目标长度
+	result := make([]byte, length)
+	copy(result, baseKey)
+
+	// 填充剩余部分，使用可打印字符确保匹配性
+	for i := len(baseKey); i < length; i++ {
+		// 使用字母数字和常见符号，确保有匹配性
+		charset := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_."
+		result[i] = charset[r.Intn(len(charset))]
+	}
+
+	return result
+}
+
+// min 返回两个整数中的较小值
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+// generateMatchingKey 生成与给定 key 有匹配性的 key
+func generateMatchingKey(baseKey []byte, variation int) []byte {
+	r := rand.New(rand.NewSource(time.Now().UnixNano() + int64(variation)))
+
+	// 生成随机长度，使用正态分布让平均值在 4k 附近
+	length := 1 + int(r.NormFloat64()*2000+4000)
+	if length < 1 {
+		length = 1
+	}
+	if length > 16384 {
+		length = 16384
+	}
+
+	// 计算匹配长度 (40%-100% 的较短长度)
+	matchLen := min(len(baseKey), length)
+	if matchLen > 1 {
+		matchLen = r.Intn(matchLen*3/5) + matchLen*2/5 // 40%-100% 的匹配
+	} else if matchLen == 1 {
+		// 如果基础 key 长度为 1，有 50% 概率匹配
+		if r.Intn(2) == 0 {
+			matchLen = 1
+		} else {
+			matchLen = 0
+		}
+	} else {
+		matchLen = 0
+	}
+
+	result := make([]byte, length)
+
+	// 复制匹配部分
+	if matchLen > 0 {
+		copy(result, baseKey[:matchLen])
+	}
+
+	// 填充剩余部分
+	for i := matchLen; i < length; i++ {
+		charset := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_."
+		result[i] = charset[r.Intn(len(charset))]
+	}
+
+	return result
+}
 
 func TestConcurrentTreeBasicUsage(t *testing.T) {
 	// 1. 测试树和节点创建
@@ -249,4 +342,134 @@ func TestConcurrentWriteReadRemove(t *testing.T) {
 			t.Errorf("LCP(%q) = %v, expected %d", tc.input, *result, tc.expected)
 		}
 	}
+}
+
+// 基准测试：并发插入性能
+func BenchmarkConcurrentInsertParallel(b *testing.B) {
+	tree := NewConcurrentTree[byte, int]()
+
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		i := 0
+		for pb.Next() {
+			key := generateRandomKey("parallel-key", i)
+			tree.Insert(key, i)
+			i++
+		}
+	})
+}
+
+// 基准测试：并发读取性能
+func BenchmarkConcurrentReadParallel(b *testing.B) {
+	tree := NewConcurrentTree[byte, int]()
+
+	// 预插入数据
+	var keys [][]byte
+	for i := 0; i < 10000; i++ {
+		key := generateRandomKey("parallel-read-key", i)
+		keys = append(keys, key)
+		tree.Insert(key, i)
+	}
+
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		i := 0
+		for pb.Next() {
+			tree.LongestCommonPrefixMatch(keys[i%10000])
+			i++
+		}
+	})
+}
+
+// 基准测试：混合读写性能
+func BenchmarkConcurrentMixed(b *testing.B) {
+	tree := NewConcurrentTree[byte, int]()
+
+	// 预插入一些基础数据
+	var baseKeys [][]byte
+	for i := 0; i < 1000; i++ {
+		key := generateRandomKey("mixed-base-key", i)
+		baseKeys = append(baseKeys, key)
+		tree.Insert(key, i)
+	}
+
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		i := 0
+		for pb.Next() {
+			if i%4 == 0 {
+				// 插入操作
+				key := generateRandomKey("mixed-insert-key", i)
+				tree.Insert(key, i)
+			} else {
+				// 读取操作
+				tree.LongestCommonPrefixMatch(baseKeys[i%1000])
+			}
+			i++
+		}
+	})
+}
+
+// 基准测试：大数据量下的性能
+func BenchmarkConcurrentLargeDataset(b *testing.B) {
+	tree := NewConcurrentTree[byte, int]()
+
+	// 预插入大量数据
+	baseSize := 5000
+	var baseKeys [][]byte
+	for i := 0; i < baseSize; i++ {
+		key := generateRandomKey("large-key", i)
+		baseKeys = append(baseKeys, key)
+		tree.Insert(key, i)
+	}
+
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		i := 0
+		for pb.Next() {
+			// 交替进行读写操作
+			if i%2 == 0 {
+				// 读取操作
+				tree.LongestCommonPrefixMatch(baseKeys[rand.Intn(baseSize)])
+			} else {
+				// 插入操作
+				key := generateRandomKey("large-new-key", i)
+				tree.Insert(key, i+baseSize)
+			}
+			i++
+		}
+	})
+}
+
+// 基准测试：并发删除操作性能
+func BenchmarkConcurrentRemove(b *testing.B) {
+	// 预插入数据
+	tree := NewConcurrentTree[byte, int]()
+	var nodes []*ConcurrentNode[byte, int]
+	for i := 0; i < 10000; i++ {
+		key := generateRandomKey("remove-benchmark", i)
+		node := tree.Insert(key, i)
+		nodes = append(nodes, node)
+	}
+
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		i := 0
+		for pb.Next() {
+			if i < len(nodes) {
+				tree.RemoveNode(nodes[i])
+			}
+			i++
+		}
+	})
+
+	b.StopTimer()
+
+	// 内存使用量统计
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+	b.ReportMetric(float64(m.Alloc)/1024, "alloc-kb")
+	b.ReportMetric(float64(m.TotalAlloc)/1024, "total-alloc-kb")
+	b.ReportMetric(float64(m.Sys)/1024, "sys-kb")
+	b.ReportMetric(float64(m.NumGC), "gc-cycles")
 }

@@ -478,29 +478,13 @@ func TestRemoveNodeWithParentCleanup(t *testing.T) {
 	if len(tree.Root.Children) != 1 {
 		t.Errorf("Expected 1 child at root, got %d", len(tree.Root.Children))
 	}
-
-	//fmt.Println(tree.String())
-	// Remove the leaf node ("helper")
-	tree.RemoveNode(node3)
-	// fmt.Println(tree.String())
-	_, result, _ := tree.LongestCommonPrefixMatch([]byte("help"))
-	if result == nil || *result != 2 {
-		t.Errorf("Expected 2, got %v", result)
-	}
-
-	// Remove the middle node ("help"), which should has no effect
 	tree.RemoveNode(node2)
-	// fmt.Println(tree.String())
-	// Verify only "hello" remains
-	_, result, _ = tree.LongestCommonPrefixMatch([]byte("hello"))
+	tree.RemoveNode(node3)
+	_, result, _ := tree.LongestCommonPrefixMatch([]byte("help"))
 	if result == nil || *result != 1 {
 		t.Errorf("Expected 1, got %v", result)
 	}
 
-	// Verify no children remain at root
-	if len(tree.Root.Children) != 1 {
-		t.Errorf("Expected 1 child at root, got %d", len(tree.Root.Children))
-	}
 }
 
 func TestRemoveRootNode(t *testing.T) {

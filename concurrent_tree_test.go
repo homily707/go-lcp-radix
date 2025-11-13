@@ -42,6 +42,71 @@ func TestConcurrentTreeBasicUsage(t *testing.T) {
 	}
 }
 
+func TestAllMatches(t *testing.T) {
+	// 1. 测试树和节点创建
+	tree := NewConcurrentTree[rune, int]()
+	if tree.Root == nil {
+		t.Error("Expected root node to be created")
+	}
+
+	// 2. 测试基本插入功能
+	tree.Insert([]rune("hello"), 1)
+	tree.Insert([]rune("help"), 2)
+	tree.Insert([]rune("helloworld"), 3)
+
+	testCases := []struct {
+		input  string
+		expect []int
+	}{
+		{"hello", []int{0, 2, 1}},          // 9. 测试完全匹配
+		{"helloworld!", []int{0, 2, 1, 3}}, // 10. 测试前缀匹配
+		{"helllllllll", []int{0, 2, 1}},    // 11. 测试部分匹配
+		{"hey", []int{0, 2}},               // 11. 测试部分匹配
+		{"你好", []int{0}},                   // 12. 测试无匹配
+	}
+
+	for _, tc := range testCases {
+		results := tree.AllLongestCommonPrefixMatch([]rune(tc.input))
+		if len(results) != len(tc.expect) {
+			t.Fatalf("AllMatches(%q) = %v, expected %v", tc.input, results, tc.expect)
+		}
+
+		for i, result := range results {
+			if result.Value == nil && tc.expect[i] != 0 {
+				t.Errorf("LCP(%q) = nil, expected %d", tc.input, tc.expect)
+			} else if result.Value != nil && *result.Value != tc.expect[i] {
+				t.Errorf("AllMatches(%q) = %v, expected %v", tc.input, results, tc.expect)
+			}
+		}
+	}
+
+	tree.Insert([]rune("help"), 4)
+
+	testCases = []struct {
+		input  string
+		expect []int
+	}{
+		{"help!", []int{0, 2, 4}},
+		{"hey", []int{0, 2}},
+	}
+
+	for _, tc := range testCases {
+		results := tree.AllLongestCommonPrefixMatch([]rune(tc.input))
+		if len(results) != len(tc.expect) {
+			t.Fatalf("AllMatches(%q) = %v, expected %v", tc.input, results, tc.expect)
+		}
+
+		for i, result := range results {
+			if result.Value == nil && tc.expect[i] != 0 {
+				t.Errorf("LCP(%q) = nil, expected %d", tc.input, tc.expect)
+			} else if result.Value != nil && *result.Value != tc.expect[i] {
+				t.Errorf("AllMatches(%q) = %v, expected %v", tc.input, results, tc.expect)
+			}
+		}
+	}
+
+}
+
 func TestConcurrentTreeRemoveNode(t *testing.T) {
 	// 1. 测试树和节点创建
 	tree := NewConcurrentTree[rune, int]()

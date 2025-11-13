@@ -6,6 +6,20 @@ import (
 	"sync"
 )
 
+type Match[T any] struct {
+	MatchLength int
+	Value       *T
+	Exact       bool
+}
+
+func NewMatch[T any](l int, v *T, exact bool) Match[T] {
+	return Match[T]{
+		MatchLength: l,
+		Value:       v,
+		Exact:       exact,
+	}
+}
+
 // ConcurrentNode represents a thread-safe node in the radix tree.
 // It contains a read-write mutex for concurrent access, text fragment of type K,
 // associated value of type T, and child nodes. The mutex ensures thread-safe
@@ -168,6 +182,42 @@ func (t *ConcurrentTree[K, T]) LongestCommonPrefixMatch(str []K) ([]K, *T, bool)
 	mark.RLock()
 	defer mark.RUnlock()
 	return commonPrefix, mark.Val, mark.End
+}
+
+func (t *ConcurrentTree[K, T]) AllLongestCommonPrefixMatch(str []K) []Match[T] {
+	candidates := []Match[T]{}
+	mark := t.Root
+	index := 0
+	for index < len(str) {
+		cur := mark
+		char := str[index]
+		// no match，stop at current node
+		cur.RLock()
+		next, ok := cur.GetChild(char)
+		val := cur.Val
+		candidates = append(candidates, NewMatch(index, val, false))
+		cur.RUnlock()
+		if !ok {
+			return candidates
+		}
+		mark = next
+		next.RLock()
+		matchText := next.Text
+		matchVal := next.Val
+		next.RUnlock()
+		sharedPrefixLength := longestPrefix(matchText, str[index:])
+		if sharedPrefixLength < len(matchText) {
+			// partial match, stop
+			candidates = append(candidates, NewMatch(index+sharedPrefixLength, matchVal, false))
+			return candidates
+		}
+		// full match, move to next node
+		index += sharedPrefixLength
+	}
+	mark.RLock()
+	defer mark.RUnlock()
+	candidates = append(candidates, NewMatch(index, mark.Val, mark.End))
+	return candidates
 }
 
 // RemoveNode removes a node from the tree in a thread-safe manner.

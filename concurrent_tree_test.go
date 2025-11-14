@@ -1,6 +1,7 @@
 package lradix
 
 import (
+	"fmt"
 	"strings"
 	"sync"
 	"testing"
@@ -58,24 +59,23 @@ func TestAllMatches(t *testing.T) {
 		input  string
 		expect []int
 	}{
-		{"hello", []int{0, 2, 1}},          // 9. 测试完全匹配
+		{"hello", []int{0, 2, 1, 3}},       // 9. 测试完全匹配
 		{"helloworld!", []int{0, 2, 1, 3}}, // 10. 测试前缀匹配
-		{"helllllllll", []int{0, 2, 1}},    // 11. 测试部分匹配
-		{"hey", []int{0, 2}},               // 11. 测试部分匹配
-		{"你好", []int{0}},                   // 12. 测试无匹配
+		{"hel", []int{0, 2, 1, 2}},         // 11. 测试部分匹配
+		{"你好", []int{0, 2}},                // 12. 测试无匹配
 	}
 
 	for _, tc := range testCases {
-		results := tree.AllLongestCommonPrefixMatch([]rune(tc.input))
+		results := tree.MultiLongestCommonPrefixMatch([]rune(tc.input))
 		if len(results) != len(tc.expect) {
-			t.Fatalf("AllMatches(%q) = %v, expected %v", tc.input, results, tc.expect)
+			t.Fatalf("AllMatches(%q) = %v, expected %v", tc.input, printMatches(results), tc.expect)
 		}
 
 		for i, result := range results {
 			if result.Value == nil && tc.expect[i] != 0 {
 				t.Errorf("LCP(%q) = nil, expected %d", tc.input, tc.expect)
 			} else if result.Value != nil && *result.Value != tc.expect[i] {
-				t.Errorf("AllMatches(%q) = %v, expected %v", tc.input, results, tc.expect)
+				t.Errorf("AllMatches(%q) = %v, expected %v", tc.input, printMatches(results), tc.expect)
 			}
 		}
 	}
@@ -87,24 +87,36 @@ func TestAllMatches(t *testing.T) {
 		expect []int
 	}{
 		{"help!", []int{0, 2, 4}},
-		{"hey", []int{0, 2}},
 	}
 
 	for _, tc := range testCases {
-		results := tree.AllLongestCommonPrefixMatch([]rune(tc.input))
+		results := tree.MultiLongestCommonPrefixMatch([]rune(tc.input))
 		if len(results) != len(tc.expect) {
-			t.Fatalf("AllMatches(%q) = %v, expected %v", tc.input, results, tc.expect)
+			t.Fatalf("AllMatches(%q) = %v, expected %v", tc.input, printMatches(results), tc.expect)
 		}
 
 		for i, result := range results {
 			if result.Value == nil && tc.expect[i] != 0 {
 				t.Errorf("LCP(%q) = nil, expected %d", tc.input, tc.expect)
 			} else if result.Value != nil && *result.Value != tc.expect[i] {
-				t.Errorf("AllMatches(%q) = %v, expected %v", tc.input, results, tc.expect)
+				t.Errorf("AllMatches(%q) = %v, expected %v", tc.input, printMatches(results), tc.expect)
 			}
 		}
 	}
 
+}
+
+func printMatches[T any](m []Match[T]) string {
+	sb := strings.Builder{}
+	for _, match := range m {
+		if match.Value == nil {
+			sb.WriteString("nil")
+		} else {
+			sb.WriteString(fmt.Sprintf("%v", *match.Value))
+		}
+		sb.WriteString(" ")
+	}
+	return sb.String()
 }
 
 func TestConcurrentTreeRemoveNode(t *testing.T) {

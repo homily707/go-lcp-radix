@@ -184,7 +184,7 @@ func (t *ConcurrentTree[K, T]) LongestCommonPrefixMatch(str []K) ([]K, *T, bool)
 	return commonPrefix, mark.Val, mark.End
 }
 
-func (t *ConcurrentTree[K, T]) AllLongestCommonPrefixMatch(str []K) []Match[T] {
+func (t *ConcurrentTree[K, T]) MultiLongestCommonPrefixMatch(str []K) []Match[T] {
 	candidates := []Match[T]{}
 	mark := t.Root
 	index := 0
@@ -198,6 +198,11 @@ func (t *ConcurrentTree[K, T]) AllLongestCommonPrefixMatch(str []K) []Match[T] {
 		candidates = append(candidates, NewMatch(index, val, false))
 		cur.RUnlock()
 		if !ok {
+			cur.RLock()
+			for _, child := range cur.Children {
+				candidates = append(candidates, NewMatch(index, child.Val, false))
+			}
+			cur.RUnlock()
 			return candidates
 		}
 		mark = next
@@ -209,6 +214,11 @@ func (t *ConcurrentTree[K, T]) AllLongestCommonPrefixMatch(str []K) []Match[T] {
 		if sharedPrefixLength < len(matchText) {
 			// partial match, stop
 			candidates = append(candidates, NewMatch(index+sharedPrefixLength, matchVal, false))
+			next.RLock()
+			for _, child := range next.Children {
+				candidates = append(candidates, NewMatch(index+sharedPrefixLength, child.Val, false))
+			}
+			next.RUnlock()
 			return candidates
 		}
 		// full match, move to next node
@@ -217,6 +227,9 @@ func (t *ConcurrentTree[K, T]) AllLongestCommonPrefixMatch(str []K) []Match[T] {
 	mark.RLock()
 	defer mark.RUnlock()
 	candidates = append(candidates, NewMatch(index, mark.Val, mark.End))
+	for _, child := range mark.Children {
+		candidates = append(candidates, NewMatch(index, child.Val, false))
+	}
 	return candidates
 }
 

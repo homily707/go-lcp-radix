@@ -55,6 +55,8 @@ func TestAllMatches(t *testing.T) {
 	tree.Insert([]rune("help"), 2)
 	tree.Insert([]rune("helloworld"), 3)
 
+	fmt.Print(tree.String())
+
 	testCases := []struct {
 		input  string
 		expect []int

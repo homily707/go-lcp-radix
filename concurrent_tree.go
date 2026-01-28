@@ -122,13 +122,14 @@ func (t *ConcurrentTree[K, T]) Insert(str []K, val T) *ConcurrentNode[K, T] {
 			next.Text = next.Text[sharedPrefix:]
 			commonNode.AddChild(next)
 			if index+sharedPrefix < len(str) {
+				// commonNode is an intermediate node
 				newNode := NewConcurrentNode(str[index+sharedPrefix:], &val, true)
+				commonNode.Val = nil
 				commonNode.AddChild(newNode)
 				cur.Unlock()  // ===🟠===
 				next.Unlock() // ===🔵===
 				return newNode
 			} else {
-				commonNode.End = true
 				cur.Unlock()  // ===🟠===
 				next.Unlock() // ===🔵===
 				return commonNode
@@ -155,6 +156,7 @@ func (t *ConcurrentTree[K, T]) LongestCommonPrefixMatch(str []K) ([]K, *T, bool)
 	commonPrefix := []K{}
 	cur := t.Root
 	var val *T
+	var isIntermediate bool
 	index := 0
 	for index < len(str) {
 		// from root to cur, all text connected equal to str[:index]
@@ -163,10 +165,6 @@ func (t *ConcurrentTree[K, T]) LongestCommonPrefixMatch(str []K) ([]K, *T, bool)
 		// find next node. next.Text start with str[index]
 		cur.RLock()
 		next, ok := cur.GetChild(char)
-		// val is the last matched node's value
-		if cur.Val != nil {
-			val = cur.Val
-		}
 		cur.RUnlock()
 
 		if !ok {
@@ -176,6 +174,13 @@ func (t *ConcurrentTree[K, T]) LongestCommonPrefixMatch(str []K) ([]K, *T, bool)
 		cur = next
 		next.RLock()
 		nextText := next.Text
+		if next.Val != nil {
+			// val is the last matched node's value
+			val = next.Val
+			isIntermediate = false
+		} else {
+			isIntermediate = true
+		}
 		next.RUnlock()
 		sharedPrefix := longestPrefix(nextText, str[index:])
 		commonPrefix = append(commonPrefix, nextText[:sharedPrefix]...)
@@ -186,56 +191,89 @@ func (t *ConcurrentTree[K, T]) LongestCommonPrefixMatch(str []K) ([]K, *T, bool)
 		// full match, try to find next node
 		index += sharedPrefix
 	}
-	return commonPrefix, val, true
+	if isIntermediate {
+		childVal := dfsNodeForValue(cur)
+		if childVal != nil {
+			val = childVal
+		}
+		return commonPrefix, val, false
+	} else {
+		return commonPrefix, val, true
+	}
+
+}
+
+func dfsNodeForValue[K comparable, T any](root *ConcurrentNode[K, T]) *T {
+	root.RLock()
+	if root.Val != nil {
+		val := root.Val
+		root.RUnlock()
+		return val
+	}
+
+	// Snapshot children to avoid holding lock during recursion
+	children := make([]*ConcurrentNode[K, T], 0, len(root.Children))
+	for _, child := range root.Children {
+		children = append(children, child)
+	}
+	root.RUnlock()
+
+	for _, child := range children {
+		val := dfsNodeForValue(child)
+		if val != nil {
+			return val
+		}
+	}
+	return nil
 }
 
 func (t *ConcurrentTree[K, T]) MultiLongestCommonPrefixMatch(str []K) []Match[T] {
 	candidates := []Match[T]{}
-	mark := t.Root
+	cur := t.Root
 	index := 0
 	for index < len(str) {
-		cur := mark
 		char := str[index]
 		// no match，stop at current node
 		cur.RLock()
 		next, ok := cur.GetChild(char)
 		val := cur.Val
-		candidates = append(candidates, NewMatch(index, val, false))
+		if val != nil {
+			candidates = append(candidates, NewMatch(index, val, false))
+		}
 		cur.RUnlock()
 		if !ok {
-			cur.RLock()
-			for _, child := range cur.Children {
-				child.RLock()
-				candidates = append(candidates, NewMatch(index, child.Val, false))
-				child.RUnlock()
-			}
-			cur.RUnlock()
-			return candidates
+			break
 		}
-		mark = next
+		for _, child := range cur.Children {
+			child.RLock()
+			if child.Val != nil {
+				candidates = append(candidates, NewMatch(index, child.Val, false))
+			}
+			child.RUnlock()
+		}
+		cur = next
 		next.RLock()
 		matchText := next.Text
-		matchVal := next.Val
 		next.RUnlock()
 		sharedPrefixLength := longestPrefix(matchText, str[index:])
 		if sharedPrefixLength < len(matchText) {
 			// partial match, stop
-			candidates = append(candidates, NewMatch(index+sharedPrefixLength, matchVal, false))
-			next.RLock()
-			for _, child := range next.Children {
-				candidates = append(candidates, NewMatch(index+sharedPrefixLength, child.Val, false))
-			}
-			next.RUnlock()
-			return candidates
+			break
 		}
 		// full match, move to next node
 		index += sharedPrefixLength
 	}
-	mark.RLock()
-	defer mark.RUnlock()
-	candidates = append(candidates, NewMatch(index, mark.Val, mark.End))
-	for _, child := range mark.Children {
-		candidates = append(candidates, NewMatch(index, child.Val, false))
+	cur.RLock()
+	defer cur.RUnlock()
+	if cur.Val != nil {
+		candidates = append(candidates, NewMatch(index, cur.Val, cur.End))
+	}
+	for _, child := range cur.Children {
+		child.RLock()
+		if child.Val != nil {
+			candidates = append(candidates, NewMatch(index, child.Val, false))
+		}
+		child.RUnlock()
 	}
 	return candidates
 }

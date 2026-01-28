@@ -35,7 +35,7 @@ type ConcurrentNode[K comparable, T any] struct {
 
 // GetChild retrieves a child node by its first character (type K).
 // Returns the child node and a boolean indicating if it was found.
-// This operation is thread-safe and does not require external locking.
+// Note: the caller is responsible for acquiring the necessary locks before calling this method.
 func (n *ConcurrentNode[K, T]) GetChild(head K) (*ConcurrentNode[K, T], bool) {
 	child, ok := n.Children[head]
 	return child, ok
@@ -200,7 +200,9 @@ func (t *ConcurrentTree[K, T]) MultiLongestCommonPrefixMatch(str []K) []Match[T]
 		if !ok {
 			cur.RLock()
 			for _, child := range cur.Children {
+				child.RLock()
 				candidates = append(candidates, NewMatch(index, child.Val, false))
+				child.RUnlock()
 			}
 			cur.RUnlock()
 			return candidates
@@ -239,26 +241,37 @@ func (t *ConcurrentTree[K, T]) MultiLongestCommonPrefixMatch(str []K) []Match[T]
 // an intermediate node with no children and doesn't represent a complete key.
 // This method uses proper locking to ensure thread safety during the removal process.
 func (t *ConcurrentTree[K, T]) RemoveNode(node *ConcurrentNode[K, T]) {
-	node.Lock()
-	defer node.Unlock()
+	node.RLock()
+	parent := node.Parent
+	node.RUnlock()
+	if parent == nil {
+		// root node can't be removed
+		return
+	}
+	parent.Lock() // ===🟦===
+	node.Lock()   // ===🟧===
+	if node.Parent != parent {
+		node.Unlock()
+		parent.Unlock()
+		// parent changed, retry
+		t.RemoveNode(node)
+		return
+	}
+	node.Parent = nil
 	if len(node.Children) > 0 {
 		for _, v := range node.Children {
 			node.Val = v.Val
 		}
 		node.End = false
+		node.Unlock()   // ===🟠===
+		parent.Unlock() // ===🔵===
 		return
 	}
-	parent := node.Parent
-	node.Parent = nil
-	if parent == nil {
-		// root node can't be removed
-		return
-	}
-
-	parent.Lock()
-	delete(parent.Children, node.Text[0])
+	nodeKey := node.Text[0]
+	node.Unlock() // ===🟠===
+	delete(parent.Children, nodeKey)
 	if len(parent.Children) == 0 && !parent.End {
-		parent.Unlock() // must unlock before recursive call Remove
+		parent.Unlock() // ===🔵=== must unlock before recursive call Remove
 		t.RemoveNode(parent)
 	} else {
 		if parent.Parent != nil {
@@ -267,7 +280,7 @@ func (t *ConcurrentTree[K, T]) RemoveNode(node *ConcurrentNode[K, T]) {
 				break
 			}
 		}
-		parent.Unlock()
+		parent.Unlock() // ===🔵===
 	}
 }
 

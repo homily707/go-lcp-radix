@@ -27,15 +27,16 @@ func NewMatch[T any](l int, v *T, exact bool) Match[T] {
 type ConcurrentNode[K comparable, T any] struct {
 	sync.RWMutex
 	Text     []K                         // Text fragment for this node (of comparable type K)
-	Val      *T                          // Value associated with this node (nil for intermediate nodes, of type T)
-	End      bool                        // Whether this node represents the end of a complete key
+	Val      *T                          // Value associated with this node (intermediate will save a random child's value)
+	End      bool                        // Whether this node is a intermediate node
+	Deleted  bool                        // Whether this node has been deleted
 	Children map[K]*ConcurrentNode[K, T] // Child nodes indexed by first character (key type K)
 	Parent   *ConcurrentNode[K, T]       // Parent node for tree traversal
 }
 
 // GetChild retrieves a child node by its first character (type K).
 // Returns the child node and a boolean indicating if it was found.
-// This operation is thread-safe and does not require external locking.
+// Note: the caller is responsible for acquiring the necessary locks before calling this method.
 func (n *ConcurrentNode[K, T]) GetChild(head K) (*ConcurrentNode[K, T], bool) {
 	child, ok := n.Children[head]
 	return child, ok
@@ -152,36 +153,40 @@ func (t *ConcurrentTree[K, T]) Insert(str []K, val T) *ConcurrentNode[K, T] {
 // read locks to allow concurrent reads while ensuring data consistency.
 func (t *ConcurrentTree[K, T]) LongestCommonPrefixMatch(str []K) ([]K, *T, bool) {
 	commonPrefix := []K{}
-	mark := t.Root
+	cur := t.Root
+	var val *T
 	index := 0
 	for index < len(str) {
-		cur := mark
+		// from root to cur, all text connected equal to str[:index]
 		char := str[index]
-		// no match，stop at current node
+
+		// find next node. next.Text start with str[index]
 		cur.RLock()
 		next, ok := cur.GetChild(char)
-		val := cur.Val
+		// val is the last matched node's value
+		if cur.Val != nil {
+			val = cur.Val
+		}
 		cur.RUnlock()
+
 		if !ok {
+			// no more match, stop
 			return commonPrefix, val, false
 		}
-		mark = next
+		cur = next
 		next.RLock()
-		matchText := next.Text
-		matchVal := next.Val
+		nextText := next.Text
 		next.RUnlock()
-		sharedPrefix := longestPrefix(matchText, str[index:])
-		commonPrefix = append(commonPrefix, matchText[:sharedPrefix]...)
-		if sharedPrefix < len(matchText) {
+		sharedPrefix := longestPrefix(nextText, str[index:])
+		commonPrefix = append(commonPrefix, nextText[:sharedPrefix]...)
+		if sharedPrefix < len(nextText) {
 			// partial match, stop
-			return commonPrefix, matchVal, false
+			return commonPrefix, val, false
 		}
-		// full match, move to next node
+		// full match, try to find next node
 		index += sharedPrefix
 	}
-	mark.RLock()
-	defer mark.RUnlock()
-	return commonPrefix, mark.Val, mark.End
+	return commonPrefix, val, true
 }
 
 func (t *ConcurrentTree[K, T]) MultiLongestCommonPrefixMatch(str []K) []Match[T] {
@@ -200,7 +205,9 @@ func (t *ConcurrentTree[K, T]) MultiLongestCommonPrefixMatch(str []K) []Match[T]
 		if !ok {
 			cur.RLock()
 			for _, child := range cur.Children {
+				child.RLock()
 				candidates = append(candidates, NewMatch(index, child.Val, false))
+				child.RUnlock()
 			}
 			cur.RUnlock()
 			return candidates
@@ -241,34 +248,13 @@ func (t *ConcurrentTree[K, T]) MultiLongestCommonPrefixMatch(str []K) []Match[T]
 func (t *ConcurrentTree[K, T]) RemoveNode(node *ConcurrentNode[K, T]) {
 	node.Lock()
 	defer node.Unlock()
-	if len(node.Children) > 0 {
-		for _, v := range node.Children {
-			node.Val = v.Val
-		}
-		node.End = false
-		return
-	}
-	parent := node.Parent
-	node.Parent = nil
-	if parent == nil {
+	if node.Parent == nil {
 		// root node can't be removed
 		return
 	}
-
-	parent.Lock()
-	delete(parent.Children, node.Text[0])
-	if len(parent.Children) == 0 && !parent.End {
-		parent.Unlock() // must unlock before recursive call Remove
-		t.RemoveNode(parent)
-	} else {
-		if parent.Parent != nil {
-			for _, v := range parent.Children {
-				parent.Val = v.Val
-				break
-			}
-		}
-		parent.Unlock()
-	}
+	node.Val = nil
+	node.End = false
+	node.Deleted = true
 }
 
 // String returns a string representation of the tree structure.

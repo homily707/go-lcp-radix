@@ -4,16 +4,21 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 )
 
+var nodeNumber atomic.Int64
+
 type Match[T any] struct {
+	ID          int64
 	MatchLength int
 	Value       *T
 	Exact       bool
 }
 
-func NewMatch[T any](l int, v *T, exact bool) Match[T] {
+func NewMatch[T any](id int64, l int, v *T, exact bool) Match[T] {
 	return Match[T]{
+		ID:          id,
 		MatchLength: l,
 		Value:       v,
 		Exact:       exact,
@@ -26,6 +31,7 @@ func NewMatch[T any](l int, v *T, exact bool) Match[T] {
 // operations on the node's data.
 type ConcurrentNode[K comparable, T any] struct {
 	sync.RWMutex
+	ID       int64
 	Text     []K                         // Text fragment for this node (of comparable type K)
 	Val      *T                          // Value associated with this node (nil for intermediate nodes, of type T)
 	End      bool                        // Whether this node represents the end of a complete key
@@ -61,6 +67,7 @@ func (n *ConcurrentNode[K, T]) AddChild(node *ConcurrentNode[K, T]) {
 // The end flag determines whether this node represents the end of a complete key.
 func NewConcurrentNode[K comparable, T any](text []K, val *T, end bool) *ConcurrentNode[K, T] {
 	return &ConcurrentNode[K, T]{
+		ID:       nodeNumber.Add(1),
 		Text:     text,
 		Val:      val,
 		End:      end,
@@ -150,9 +157,10 @@ func (t *ConcurrentTree[K, T]) Insert(str []K, val T) *ConcurrentNode[K, T] {
 // It returns three values: the longest common prefix (slice of type K), associated value (pointer to type T),
 // and a boolean indicating whether it is an exact match. This operation is thread-safe and uses
 // read locks to allow concurrent reads while ensuring data consistency.
-func (t *ConcurrentTree[K, T]) LongestCommonPrefixMatch(str []K) ([]K, *T, bool) {
+func (t *ConcurrentTree[K, T]) LongestCommonPrefixMatch(str []K) (int64, []K, *T, bool) {
 	commonPrefix := []K{}
 	mark := t.Root
+	var id int64
 	index := 0
 	for index < len(str) {
 		cur := mark
@@ -161,32 +169,35 @@ func (t *ConcurrentTree[K, T]) LongestCommonPrefixMatch(str []K) ([]K, *T, bool)
 		cur.RLock()
 		next, ok := cur.GetChild(char)
 		val := cur.Val
+		id = cur.ID
 		cur.RUnlock()
 		if !ok {
-			return commonPrefix, val, false
+			return id, commonPrefix, val, false
 		}
 		mark = next
 		next.RLock()
 		matchText := next.Text
 		matchVal := next.Val
+		id = next.ID
 		next.RUnlock()
 		sharedPrefix := longestPrefix(matchText, str[index:])
 		commonPrefix = append(commonPrefix, matchText[:sharedPrefix]...)
 		if sharedPrefix < len(matchText) {
 			// partial match, stop
-			return commonPrefix, matchVal, false
+			return id, commonPrefix, matchVal, false
 		}
 		// full match, move to next node
 		index += sharedPrefix
 	}
 	mark.RLock()
 	defer mark.RUnlock()
-	return commonPrefix, mark.Val, mark.End
+	return mark.ID, commonPrefix, mark.Val, mark.End
 }
 
 func (t *ConcurrentTree[K, T]) MultiLongestCommonPrefixMatch(str []K) []Match[T] {
 	candidates := []Match[T]{}
 	mark := t.Root
+	var id int64
 	index := 0
 	for index < len(str) {
 		cur := mark
@@ -195,13 +206,14 @@ func (t *ConcurrentTree[K, T]) MultiLongestCommonPrefixMatch(str []K) []Match[T]
 		cur.RLock()
 		next, ok := cur.GetChild(char)
 		val := cur.Val
-		candidates = append(candidates, NewMatch(index, val, false))
+		id = cur.ID
+		candidates = append(candidates, NewMatch(id, index, val, false))
 		cur.RUnlock()
 		if !ok {
 			cur.RLock()
 			for _, child := range cur.Children {
 				child.RLock()
-				candidates = append(candidates, NewMatch(index, child.Val, false))
+				candidates = append(candidates, NewMatch(child.ID, index, child.Val, false))
 				child.RUnlock()
 			}
 			cur.RUnlock()
@@ -211,14 +223,15 @@ func (t *ConcurrentTree[K, T]) MultiLongestCommonPrefixMatch(str []K) []Match[T]
 		next.RLock()
 		matchText := next.Text
 		matchVal := next.Val
+		id = next.ID
 		next.RUnlock()
 		sharedPrefixLength := longestPrefix(matchText, str[index:])
 		if sharedPrefixLength < len(matchText) {
 			// partial match, stop
-			candidates = append(candidates, NewMatch(index+sharedPrefixLength, matchVal, false))
+			candidates = append(candidates, NewMatch(id, index+sharedPrefixLength, matchVal, false))
 			next.RLock()
 			for _, child := range next.Children {
-				candidates = append(candidates, NewMatch(index+sharedPrefixLength, child.Val, false))
+				candidates = append(candidates, NewMatch(child.ID, index+sharedPrefixLength, child.Val, false))
 			}
 			next.RUnlock()
 			return candidates
@@ -228,9 +241,9 @@ func (t *ConcurrentTree[K, T]) MultiLongestCommonPrefixMatch(str []K) []Match[T]
 	}
 	mark.RLock()
 	defer mark.RUnlock()
-	candidates = append(candidates, NewMatch(index, mark.Val, mark.End))
+	candidates = append(candidates, NewMatch(mark.ID, index, mark.Val, mark.End))
 	for _, child := range mark.Children {
-		candidates = append(candidates, NewMatch(index, child.Val, false))
+		candidates = append(candidates, NewMatch(child.ID, index, child.Val, false))
 	}
 	return candidates
 }

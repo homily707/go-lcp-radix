@@ -34,7 +34,7 @@ func TestConcurrentTreeBasicUsage(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		_, result, _ := tree.LongestCommonPrefixMatch([]rune(tc.input))
+		_, _, result, _ := tree.LongestCommonPrefixMatch([]rune(tc.input))
 		if result == nil && tc.expect != 0 {
 			t.Errorf("LCP(%q) = nil, expected %d", tc.input, tc.expect)
 		} else if result != nil && *result != tc.expect {
@@ -137,7 +137,7 @@ func TestConcurrentTreeRemoveNode(t *testing.T) {
 	// fmt.Println(tree.String())
 	// 测试删除叶节点
 	tree.RemoveNode(helper)
-	_, result, _ := tree.LongestCommonPrefixMatch([]rune("helper"))
+	_, _, result, _ := tree.LongestCommonPrefixMatch([]rune("helper"))
 	if result == nil || *result != 4 {
 		t.Errorf("LCP(helper) = %v, expected 4", *result)
 	}
@@ -159,7 +159,7 @@ func TestConcurrentTreeRemoveNode(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		_, result, _ := tree.LongestCommonPrefixMatch([]rune(tc.input))
+		_, _, result, _ := tree.LongestCommonPrefixMatch([]rune(tc.input))
 		if result == nil && tc.expect != 0 {
 			t.Errorf("LCP(%q) = nil, expected %d", tc.input, tc.expect)
 		} else if result != nil && *result != tc.expect {
@@ -261,7 +261,7 @@ func TestConcurrentWriteRead(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		_, result, _ := tree.LongestCommonPrefixMatch([]rune(tc.input))
+		_, _, result, _ := tree.LongestCommonPrefixMatch([]rune(tc.input))
 		if result == nil {
 			t.Errorf("LCP(%q) = nil, expected %d", tc.input, tc.expected)
 		} else if *result != tc.expected {
@@ -319,7 +319,7 @@ func TestConcurrentWriteReadRemove(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		_, result, _ := tree.LongestCommonPrefixMatch([]rune(tc.input))
+		_, _, result, _ := tree.LongestCommonPrefixMatch([]rune(tc.input))
 		if result == nil && tc.expected != 0 {
 			t.Errorf("LCP(%q) = nil, expected %d", tc.input, tc.expected)
 		} else if result != nil && *result != tc.expected {

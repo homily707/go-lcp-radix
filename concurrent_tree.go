@@ -270,7 +270,6 @@ func (t *ConcurrentTree[K, T]) RemoveNode(node *ConcurrentNode[K, T]) {
 		t.RemoveNode(node)
 		return
 	}
-	node.Parent = nil
 	if len(node.Children) > 0 {
 		for _, v := range node.Children {
 			node.Val = v.Val
@@ -280,6 +279,7 @@ func (t *ConcurrentTree[K, T]) RemoveNode(node *ConcurrentNode[K, T]) {
 		parent.Unlock() // ===🔵===
 		return
 	}
+	node.Parent = nil
 	nodeKey := node.Text[0]
 	node.Unlock() // ===🟠===
 	delete(parent.Children, nodeKey)
